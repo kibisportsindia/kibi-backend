@@ -2,6 +2,8 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import * as express from "express";
 import * as bodyParser from "body-parser";
+const cors = require("cors");
+var shortid = require("shortid");
 
 //initialize firebase inorder to access its services
 admin.initializeApp(functions.config().firebase);
@@ -13,11 +15,13 @@ const main = express();
 //add the path to receive request and set json as bodyParser to process the body
 main.use("/api/v1", app);
 main.use(bodyParser.json());
+main.use(cors({ origin: true }));
 main.use(bodyParser.urlencoded({ extended: false }));
 
 //initialize the database and the collection
 const db = admin.firestore();
 const userCollection = "users";
+
 interface User {
   firstName: String;
   lastName: String;
@@ -94,6 +98,80 @@ app.put("/users/:userId", async (req, res) => {
     .set(req.body, { merge: true })
     .then(() => res.json({ id: req.params.userId }))
     .catch(error => res.status(500).send(error));
+});
+
+//share invite
+app.post("/users/invite", async (req, res) => {
+  try {
+    const user = {
+      phone: req.body["phone"],
+      referrer: req.body["referrer"],
+      invite_code: shortid.generate(),
+      invited_timestamp: new Date()
+    };
+
+    // const snapshot = await db
+    //   .collection(userCollection)
+    //   .where("phone", "==", user.phone)
+    //   .get();
+
+    // snapshot.forEach(user => {
+    //   res.status(200).json({ id: user.id, data: user.data() });
+    //   return;
+    // });
+
+    // if (!snapshot) {
+    await db
+      .collection(userCollection)
+      .doc()
+      .set(user, { merge: true })
+      .then(userUdated => {
+        console.log("new user", userUdated);
+        if (user)
+          res.status(201).json({ message: "User Invited", details: user });
+      });
+
+    // }
+  } catch (error) {
+    functions.logger.log("error:", error);
+    res.status(400).send(`Invite should contain phone, referrer!!!`);
+  }
+});
+
+//validate invite code
+app.post("/users/invite", async (req, res) => {
+  try {
+    const user = {
+      phone: req.body["phone"],
+      invite_code: req.body["invite_code"]
+    };
+
+    // const snapshot = await db
+    //   .collection(userCollection)
+    //   .where("phone", "==", user.phone)
+    //   .get();
+
+    // snapshot.forEach(user => {
+    //   res.status(200).json({ id: user.id, data: user.data() });
+    //   return;
+    // });
+
+    // if (!snapshot) {
+    await db
+      .collection(userCollection)
+      .doc()
+      .set(user, { merge: true })
+      .then(userUdated => {
+        console.log("new user", userUdated);
+        if (user)
+          res.status(201).json({ message: "User Invited", details: user });
+      });
+
+    // }
+  } catch (error) {
+    functions.logger.log("error:", error);
+    res.status(400).send(`Invite should contain phone, referrer!!!`);
+  }
 });
 
 //define google cloud function name
