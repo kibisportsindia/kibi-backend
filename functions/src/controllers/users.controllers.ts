@@ -1,13 +1,16 @@
 import * as functions from "firebase-functions";
+import * as admin from "firebase-admin";
 import { Request, Response, NextFunction } from "express";
-import { db } from "./db.js";
 import * as jwt from "jsonwebtoken";
 import * as config from "../config/config.json";
 import { User, Phone } from "../models/User";
 
+admin.initializeApp(functions.config().firebase);
+export let db = admin.firestore();
 const userCollection = "users";
+
 // @desc SignUp
-// @route POST /users/signup
+// @route POST api/users/signup
 // @access Public
 export let registerUsers = async (
   req: Request,
@@ -49,6 +52,9 @@ export let registerUsers = async (
   }
 };
 
+// @desc Add Profile Details
+// @route POST api/users/add-profile
+// @access Public
 export let addProfile = async (
   req: Request,
   res: Response,
