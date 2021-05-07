@@ -3,13 +3,13 @@ import * as admin from "firebase-admin";
 import { Request, Response, NextFunction } from "express";
 import * as jwt from "jsonwebtoken";
 import * as config from "../config/config.json";
-import { User, Phone } from "../models/User";
+import { User, Phone, Social, Interests } from "../models/User";
 
 admin.initializeApp(functions.config().firebase);
 export let db = admin.firestore();
 const userCollection = "users";
 
-// @desc SignUp
+// @desc SignUp/Login
 // @route POST api/users/signup
 // @access Public
 export let registerUsers = async (
@@ -29,7 +29,7 @@ export let registerUsers = async (
 
     snapshot.forEach((userdata) => {
       if (!userdata.exists) {
-        res.status(200).json({ message: "User not found" });
+        res.status(200).json({ status: false, message: "User not found" });
       }
 
       const token = jwt.sign({ id: userdata.id }, config.TOKEN_SECRET);
@@ -38,6 +38,7 @@ export let registerUsers = async (
         .header("auth-user", token)
         .status(200)
         .json({
+          status: true,
           message: "User Found",
           details: {
             id: userdata.id,
@@ -53,7 +54,7 @@ export let registerUsers = async (
 };
 
 // @desc Add Profile Details
-// @route POST api/users/add-profile
+// @route Patch api/users/add-profile
 // @access Public
 export let addProfile = async (
   req: Request,
@@ -66,15 +67,56 @@ export let addProfile = async (
       age: req.body["age"],
       location: req.body["location"],
       role: req.body["role"],
+      invite_code: req.body["invite_code"],
       gender: req.body["gender"],
     };
 
     const newDoc = await db.collection(userCollection).add(user);
-    res.status(201).send(`Created a new user: ${newDoc.id}`);
+    res.status(201).send(`Created a new user add profile: ${newDoc.id}`);
   } catch (error) {
     functions.logger.log("error:", error);
-    res
-      .status(400)
-      .send(`User should contain firstName, lastName, email , id and phone!!!`);
+    res.status(400).send(`User should contain add profile details!!!`);
+  }
+};
+
+// @desc Add Social Accounts
+// @route Patch api/users/social
+// @access Public
+export let socialAccounts = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const user: Social = {
+      social_links: req.body["social_links"],
+    };
+
+    const newDoc = await db.collection(userCollection).add(user);
+    res.status(201).send(`Added a new user Social Links: ${newDoc.id}`);
+  } catch (error) {
+    functions.logger.log("error:", error);
+    res.status(400).send(`User should contain social accounts!!!`);
+  }
+};
+
+// @desc Add Interests
+// @route Patch api/users/interests
+// @access Public
+export let interests = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const user: Interests = {
+      interests: req.body["interests"],
+    };
+
+    const newDoc = await db.collection(userCollection).add(user);
+    res.status(201).send(`Added a new user Interests: ${newDoc.id}`);
+  } catch (error) {
+    functions.logger.log("error:", error);
+    res.status(400).send(`User should be interests!!!`);
   }
 };
