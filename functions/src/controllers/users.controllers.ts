@@ -3,7 +3,7 @@ import * as admin from "firebase-admin";
 import { Request, Response, NextFunction } from "express";
 import * as jwt from "jsonwebtoken";
 import * as config from "../config/config.json";
-import * as configTwilio from "../config/config";
+import configTwilio from "../config/config";
 import { Twilio } from "twilio";
 import { User, Social, Interests } from "../models/User";
 
