@@ -1,10 +1,12 @@
 export interface User {
+  invite_code: String;
+  phone: String;
   name: String;
   age: Number;
   location: String;
-  role: Array<Role>;
-  invite_code: String;
-  gender: Array<Gender>;
+  role: Role;
+  gender: Gender;
+  invited_by: String,
 }
 
 enum Role {
@@ -21,9 +23,9 @@ enum Gender {
   Female = "Female",
 }
 
-export interface Phone {
-  phone: String;
-}
+// export interface Phone {
+//   phone: String;
+// }
 
 export interface Social {
   social_links: Array<String>;
