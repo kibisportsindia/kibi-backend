@@ -130,12 +130,16 @@ export let verifyPhone = async (
       .get();
     if (!user) throw new Error("User not found");
 
-    const info = await client.verify
-      .services(configTwilio.serviceID)
-      .verificationChecks.create({
-        to: userPhone,
-        code: req.query.code + ""
-      });
+    if (user) {
+      const { phone } = user;
+
+      const info = await client.verify
+        .services(configTwilio.serviceID)
+        .verificationChecks.create({
+          to: phone,
+          code: req.query.code + ""
+        });
+    }
   } catch (error) {}
 };
 

@@ -133,8 +133,8 @@ export let verifyPhone = async (
     const info = await client.verify
       .services(configTwilio.serviceID)
       .verificationChecks.create({
-        to: userPhone,
-        code: req.query.code + ""
+        to: user.phone,
+        code: req.query.code
       });
   } catch (error) {}
 };

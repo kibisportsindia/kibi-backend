@@ -6,7 +6,7 @@ export interface User {
   location: String;
   role: Role;
   gender: Gender;
-  invited_by: String,
+  invited_by: void;
 }
 
 enum Role {
@@ -15,12 +15,12 @@ enum Role {
   Coach = "Coach",
   Sports_Academy = "Sports Academy",
   Brand_Company = "Brand/Company",
-  Sports_Staff = "Sports Staff",
+  Sports_Staff = "Sports Staff"
 }
 
 enum Gender {
   Male = "Male",
-  Female = "Female",
+  Female = "Female"
 }
 
 // export interface Phone {
