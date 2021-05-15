@@ -6,7 +6,7 @@ export interface User {
   location: String;
   role: Role;
   gender: Gender;
-  invited_by: void;
+  invited_by;
 }
 
 enum Role {
