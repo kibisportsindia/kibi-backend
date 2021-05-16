@@ -78,7 +78,7 @@ export let registerUsers = async (
 // @desc Send Otp
 // @route Post /users/send-otp
 // @access Public
-export let sendotp = async (
+export let sendOtp = async (
   req: Request,
   res: Response,
   next: NextFunction
@@ -87,37 +87,25 @@ export let sendotp = async (
     const user = {
       phone: req.body["phone"]
     };
-
-    const snapshot = await db
-      .collection(userCollection)
-      .where("phone", "==", user.phone)
-      .get();
-
-    snapshot.forEach(async userdata => {
-      if (!userdata.exists) {
-        res.status(200).json({ message: "User not found" });
-      }
-      const data = await client.verify
-        .services(configTwilio.serviceID)
-        .verifications.create({
-          to: `${userdata.data().phone}`,
-          channel: "sms"
-        });
-      res.status(200).json({
-        message: "User Found",
-        details: {
-          id: userdata.id,
-          phone: userdata.data().phone,
-          data: {
-            to: data.to,
-            channel: data.channel,
-            status: data.status,
-            dateCreated: data.dateCreated
-          }
-        }
+    const data = await client.verify
+      .services(configTwilio.serviceID)
+      .verifications.create({
+        to: `+91${user.phone}`,
+        channel: "sms"
       });
-      return;
+    res.status(200).json({
+      message: "OTP Sent Successfully",
+      details: {
+        phone: user.phone,
+        data: {
+          to: data.to,
+          channel: data.channel,
+          status: data.status,
+          dateCreated: data.dateCreated
+        }
+      }
     });
+    return;
   } catch (error) {
     functions.logger.log("error:", error);
     res.status(400).send(`Something Went Wrong`);
@@ -127,35 +115,36 @@ export let sendotp = async (
 // @desc Verify the Code
 // @route Get /users/verify
 // @access Public
-export let verifyPhone = async (
+export let verifyPhoneOtp = async (
   req: Request,
   res: Response,
   next: NextFunction
 ) => {
   try {
-    const userPhone = req.query.phone;
-    if (!userPhone) {
-      res.status(404).json({ error: "Dataset not found" });
-      return;
-    }
-    if (typeof userPhone !== "string") {
-      res.status(500).json({ error: "Invalid dataset" });
-      return;
-    }
-    const user = await db
-      .collection(userCollection)
-      .doc(userPhone)
-      .get();
-    if (!user) throw new Error("User not found");
-
+    console.log("phone ", req.body.phone, "otp is ", req.body.otp);
     const info = await client.verify
       .services(configTwilio.serviceID)
       .verificationChecks.create({
-        to: userPhone,
-        code: req.query.code + ""
+        to: "+91" + req.body.phone,
+        code: req.body.otp
+      })
+      .then(check => {
+        if (check.status === "approved") {
+          res.status(200).json({
+            message: "Verification successfull"
+          });
+        } else {
+          res.status(401).json({
+            message: "Incorrect Otp Entered."
+          });
+        }
       });
+
     console.log("info ", info);
-  } catch (error) {}
+  } catch (error) {
+    console.log("error", error);
+    res.status(400).send(`OTP has expired`);
+  }
 };
 
 // @desc Add Social Accounts
@@ -167,15 +156,29 @@ export let socialAccounts = async (
   next: NextFunction
 ) => {
   try {
-    const user: Social = {
+    const links: Social = {
       social_links: req.body["social_links"]
     };
 
-    const newDoc = await db.collection(userCollection).add(user);
-    res.status(201).send(`Added a new user Social Links: ${newDoc.id}`);
+    await db
+      .collection(userCollection)
+      .doc(req.body.id)
+      .get()
+      .then(async user => {
+        if (!user.exists) {
+          res.status(404).json({ message: "User not found" });
+          return;
+        } else {
+          await db
+            .collection(userCollection)
+            .doc(req.body.id)
+            .set(links, { merge: true });
+        }
+        res.status(200).json({ message: `Social media links updated ` });
+      });
   } catch (error) {
     functions.logger.log("error:", error);
-    res.status(400).send(`User should contain social accounts!!!`);
+    res.status(400).send(`Something Went Wrong!!!`);
   }
 };
 
@@ -188,12 +191,26 @@ export let interests = async (
   next: NextFunction
 ) => {
   try {
-    const user: Interests = {
+    const interests: Interests = {
       interests: req.body["interests"]
     };
 
-    const newDoc = await db.collection(userCollection).add(user);
-    res.status(201).send(`Added a new user Interests: ${newDoc.id}`);
+    await db
+      .collection(userCollection)
+      .doc(req.body.id)
+      .get()
+      .then(async user => {
+        if (!user.exists) {
+          res.status(404).json({ message: "User not found" });
+          return;
+        } else {
+          await db
+            .collection(userCollection)
+            .doc(req.body.id)
+            .set(interests, { merge: true });
+        }
+        res.status(200).json({ message: `Interests updated ` });
+      });
   } catch (error) {
     functions.logger.log("error:", error);
     res.status(400).send(`User should be interests!!!`);
@@ -272,24 +289,25 @@ export let checkPhone = async (req, res) => {
       phone: req.body["phone"]
     };
 
-    const snapshot = await db
+    await db
       .collection(userCollection)
       .where("phone", "==", user.phone)
-      .get();
-
-    snapshot.forEach(userdata => {
-      if (!userdata.exists) {
-        res.status(200).json({ message: "User not found" });
-      }
-      res.status(200).json({
-        message: "User Found",
-        details: {
-          id: userdata.id,
-          phone: userdata.data().phone
+      .get()
+      .then(userData => {
+        if (userData.empty) {
+          res.status(404).json({ message: "User not found" });
+          return;
+        } else {
+          res.status(200).json({
+            message: "User Found",
+            details: {
+              id: userData.docs[0].id,
+              phone: userData.docs[0].data().phone
+            }
+          });
+          return;
         }
       });
-      return;
-    });
   } catch (error) {
     functions.logger.log("error:", error);
     res.status(400).send(`Something Went Wrong`);
