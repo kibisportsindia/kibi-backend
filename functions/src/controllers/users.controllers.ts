@@ -135,7 +135,7 @@ export let verifyPhoneOtp = async (
           });
         } else {
           res.status(401).json({
-            message: "Incorrect Otp Entered."
+            message: "Incorrect Otp Entered`."
           });
         }
       });
@@ -303,6 +303,81 @@ export let checkPhone = async (req, res) => {
             details: {
               id: userData.docs[0].id,
               phone: userData.docs[0].data().phone
+            }
+          });
+          return;
+        }
+      });
+  } catch (error) {
+    functions.logger.log("error:", error);
+    res.status(400).send(`Something Went Wrong`);
+  }
+};
+
+// @desc Login
+// @route Post /users/login
+// @access Public
+export let loginUser = async (req, res) => {
+  try {
+    const user = {
+      phone: req.body["phone"]
+    };
+
+    await db
+      .collection(userCollection)
+      .where("phone", "==", user.phone)
+      .get()
+      .then(userData => {
+        if (userData.empty) {
+          res.status(404).json({ message: "User not found" });
+          return;
+        } else {
+          const token = jwt.sign(
+            { id: userData.docs[0].id },
+            config.TOKEN_SECRET
+          );
+          res
+            .header("auth-user", token)
+            .status(200)
+            .json({
+              message: "User Found",
+              details: {
+                id: userData.docs[0].id,
+                phone: userData.docs[0].data().phone
+              }
+            });
+          return;
+        }
+      });
+  } catch (error) {
+    functions.logger.log("error:", error);
+    res.status(400).send(`Something Went Wrong`);
+  }
+};
+
+// @desc fetchProfile
+// @route Post /users/fetch-profile
+// @access Public
+export let fetchProfile = async (req, res) => {
+  try {
+    let token = req.headers.token;
+    const decoded = jwt.verify(token, config.TOKEN_SECRET);
+    let id = decoded["id"];
+
+    await db
+      .collection(userCollection)
+      .doc(id)
+      .get()
+      .then(userData => {
+        if (!userData.exists) {
+          res.status(404).json({ message: "User not found" });
+          return;
+        } else {
+          res.status(200).json({
+            message: "User Found",
+            details: {
+              id: userData.data().id,
+              data: userData.data()
             }
           });
           return;

@@ -10,5 +10,7 @@ router.route("/verify").post(userController.verifyPhoneOtp);
 router.route("/generate-invite").post(userController.generateInvite);
 router.route("/validate-invite").post(userController.validateInvite);
 router.route("/check-phone").post(userController.checkPhone);
+router.route("/fetch-profile").get(userController.fetchProfile);
+router.route("/login").post(userController.loginUser);
 
 module.exports = router;
