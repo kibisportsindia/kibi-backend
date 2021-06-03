@@ -3,10 +3,16 @@ import * as admin from "firebase-admin";
 import { Request, Response, NextFunction } from "express";
 import * as jwt from "jsonwebtoken";
 import * as config from "../config/config.json";
-import { configTwilio } from "../config/config";
+//import { configTwilio } from "../config/confi";
 import { Twilio } from "twilio";
 import { User, Social, Interests } from "../models/User";
 var shortid = require("shortid");
+
+const configTwilio = {
+  "serviceID":"VA4d1607a37be8003acab1c834307600d3",
+"accountSID":"ACe53f5f225708f643c98165e05dc7c448",
+"authToken":"4b57edd7873dc2d75b0d33446d21f4b8"
+}
 
 admin.initializeApp(functions.config().firebase);
 export let db = admin.firestore();
