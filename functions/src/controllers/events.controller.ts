@@ -1,12 +1,17 @@
+import * as functions from "firebase-functions";
+import * as admin from "firebase-admin";
 import { Request, Response, NextFunction } from "express";
 import * as config from "../config/config.json";
 import { Event } from "../models/Events";
 import { Storage } from "@google-cloud/storage";
-import * as userController from "../controllers/users.controllers";
+//import * as userController from "../controllers/users.controllers";
 const formParser = require("../utils/formParser");
 const MAX_SIZE = 4000000; // 4MB
 
-let db = userController.db;
+// let db = userController.db;
+admin.initializeApp(functions.config().firebase);
+export let db = admin.firestore();
+// db.settings({ ignoreUndefinedProperties: true });
 const eventCollection = "events";
 
 const storage = new Storage({
@@ -24,6 +29,8 @@ export const addEvent = async (
   const formData = await formParser.parser(req, MAX_SIZE);
   const file = formData.files[0];
   console.log("formdata ", formData);
+  console.log("file ", file);
+  console.log("Buffer",file.content);
   try {
     if (!file) {
       res.status(400).send("Error, could not upload file ( file not found )");
@@ -37,10 +44,7 @@ export const addEvent = async (
     });
     blobWriter.on("error", err => next(err));
     blobWriter.on("finish", async () => {
-      const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${
-        bucket.name
-      }
-              /o/${encodeURI(blob.name)}?alt=media`;
+      const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURI(blob.name)}?alt=media`;
 
       console.log("url", publicUrl);
       const event: Event = {
@@ -60,7 +64,7 @@ export const addEvent = async (
       const newDoc = await db.collection(eventCollection).add(event);
       res.status(200).send({ message: `Event added: ${newDoc.id}` });
     });
-    blobWriter.end(formData.buffer);
+    blobWriter.end(file.content);
   } catch (error) {
     console.log(error);
     res.status(400).send(`Something went wrong try again!!`);
