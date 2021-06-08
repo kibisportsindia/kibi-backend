@@ -59,7 +59,7 @@ export const addEvent = async (
       };
       console.log("event is ", event);
       const newDoc = await db.collection(eventCollection).add(event);
-      res.status(200).send({ message: `Event added: ${newDoc.id}` });
+      res.status(200).send({ message: "Event added", id:newDoc.id });
     });
     blobWriter.end(file.content);
   } catch (error) {
