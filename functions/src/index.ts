@@ -2,7 +2,6 @@ import * as functions from "firebase-functions";
 import * as bodyParser from "body-parser";
 import * as express from "express";
 const cors = require("cors");
-
 //initialize firebase inorder to access its services
 
 //initialize express server
@@ -14,8 +13,10 @@ const app = express();
 
 app.use(bodyParser.json());
 app.use(cors({ origin: true }));
+
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use("/user", require("./routes/users.routes"));
+app.use("/event", require("./routes/events.routes"));
 app.get("/heartbeat", (req, res) => {
   res.status(200).json(`Running`);
 });
