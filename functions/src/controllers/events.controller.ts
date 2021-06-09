@@ -7,7 +7,6 @@ import { Storage } from "@google-cloud/storage";
 const formParser = require("../utils/formParser");
 const MAX_SIZE = 4000000; // 4MB
 
-admin.initializeApp(functions.config().firebase, "app");
 export let db = admin.firestore();
 const eventCollection = "events";
 
@@ -65,7 +64,7 @@ export const addEvent = async (
     });
     blobWriter.end(file.content);
   } catch (error) {
-    console.log(error);
+    functions.logger.log("error:", error);
     res.status(400).send(`Something went wrong try again!!`);
     return;
   }
@@ -77,7 +76,9 @@ export const getEvents = async (
   next: NextFunction
 ) => {
   try {
-    let type = req.body["type"];
+    console.log("headers", req.headers);
+
+    let type = req.headers.type;
     await db
       .collection(eventCollection)
       .where("type", "==", type)

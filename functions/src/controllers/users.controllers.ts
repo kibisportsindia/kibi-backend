@@ -8,9 +8,6 @@ import { Twilio } from "twilio";
 import { User, Social, Interests } from "../models/User";
 var shortid = require("shortid");
 
-
-
-admin.initializeApp(functions.config().firebase);
 export let db = admin.firestore();
 db.settings({ ignoreUndefinedProperties: true });
 const userCollection = "users";
