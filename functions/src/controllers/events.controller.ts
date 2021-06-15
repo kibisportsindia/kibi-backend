@@ -6,6 +6,7 @@ import { Event } from "../models/Events";
 import { Storage } from "@google-cloud/storage";
 const formParser = require("../utils/formParser");
 const MAX_SIZE = 4000000; // 4MB
+const { v4: uuidv4 } = require('uuid')
 
 admin.initializeApp(functions.config().firebase,"app");
 export let db = admin.firestore();
@@ -33,7 +34,7 @@ export const addEvent = async (
       res.status(400).send("Error, could not upload file ( file not found )");
       return;
     }
-    const blob = bucket.file(file.filename);
+    const blob = bucket.file('image-' + uuidv4() + "-" + file.filename);
     const blobWriter = blob.createWriteStream({
       metadata: {
         contentType: file.contentType
@@ -126,7 +127,7 @@ export const updateEvent = async (
       console.log("fileName",fileName);
       const img = bucket.file(fileName)
       img.delete().then(result=>{
-        const blob = bucket.file(file.filename);
+        const blob = bucket.file('image-' + uuidv4() + "-" + file.filename);
         const blobWriter = blob.createWriteStream({
           metadata: {
             contentType: file.contentType
