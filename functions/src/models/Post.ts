@@ -1,10 +1,10 @@
 export interface Post { 
         user_id :  String ,
-        imageUrl : String,
+        imageUrl : Array<String>,
         comment : [{ 
         commentId : String,
         text: String ,
-        Timestamp}],
+        Timestamp:Date}],
         likers :Array<String>,
         likesCount : Number,
         description: String,

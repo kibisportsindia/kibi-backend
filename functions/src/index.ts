@@ -19,6 +19,7 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use("/user", require("./routes/users.routes"));
 app.use("/event", require("./routes/events.routes"));
 app.use("/tutorials", require("./routes/tutorials.routes"));
+app.use("/post", require("./routes/posts.routes"));
 app.get("/heartbeat", (req, res) => {
   res.status(200).json(`Running`);
 });
