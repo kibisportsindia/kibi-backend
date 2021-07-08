@@ -6,7 +6,9 @@ const formParser = require("../utils/formParser");
 import {Post} from "../models/Post"
 const { v4: uuidv4 } = require('uuid')
 const MAX_SIZE = 4000000; // 4MB
+const ShortUniqueId = require('short-unique-id');
 
+const suid = new ShortUniqueId();
 
 export let db = admin.firestore();
 const postCollection = "posts";
@@ -52,7 +54,7 @@ export let createPost = async (
             let post:Post = {
                 user_id:formData["user_id"],
                 imageUrl:imageUrls,
-                comment:[{commentId:"7",text:"",Timestamp:new Date}],
+                comment:[],
                 likers:[],
                 likesCount:0,
                 description:formData["description"],
@@ -139,7 +141,7 @@ export let updatePost = async (
                         let post:Post = {
                             user_id:formData["user_id"],
                             imageUrl:imageUrls,
-                            comment:[{commentId:"7",text:"",Timestamp:new Date}],
+                            comment:[],
                             likers:[],
                             likesCount:0,
                             description:formData["description"],
@@ -220,3 +222,116 @@ export let likePost = async (
         return res.status(400).json({message:"Something went Wrong!"})
     }
 }
+
+
+export let commentOnPost = async ( 
+    req:Request,
+    res:Response,
+    next:NextFunction
+) => {
+    const postId = req.body["postId"];
+    const text = req.body["text"];
+    console.log(req.body)
+    db.collection("users").doc(req.body["userId"]).get().then(userDocSnap=>{
+        if(!userDocSnap.exists){
+            res.status(400).send({message:"user dont exist!"})
+            return;
+        }
+        let userData = userDocSnap.data();
+        db.collection(postCollection).doc(postId).get().then(docSnap=>{
+            if(!docSnap.exists){
+                res.status(400).send({message:"user dont exist!"})
+                return;
+            }
+            let docData = docSnap.data();
+            let comment = {userId:req.body["userId"],userName:userData.name,commentId:suid(),text:text,Timestamp:new Date()}
+            docData.comment.push(comment)
+            db.collection(postCollection).doc(postId).update({
+                ...docData
+            }).then(result=>{
+                res.status(200).send({message:"comment added!"})
+                return;
+            }).catch(error=>{
+                console.log(error)
+                return res.status(400).json({message:"Something went Wrong!"})
+            })
+        }).catch(error=>{
+            console.log(error)
+            return res.status(400).json({message:"Something went Wrong!"})
+        }) 
+    })
+}
+
+
+
+export let deleteComment = (
+    req:Request,
+    res:Response,
+    next:NextFunction
+) => {
+    let postId = req.body["postId"];
+    let commentId = req.body["commentId"];
+    db.collection(postCollection).doc(postId).get().then(docSnap=>{
+        let docData = docSnap.data();
+        docData.comment = docData.comment.filter(comment => comment.commentId!==commentId)
+        db.collection(postCollection).doc(postId).update({
+            ...docData
+        }).then(result=>{
+            res.status(200).send({message:"Comment Deleted"})
+        }).catch(error=>{
+            console.log(error)
+            return res.status(400).json({message:"Something went Wrong!"})
+        })
+    }).catch(error=>{
+        console.log(error)
+        return res.status(400).json({message:"Something went Wrong!"})
+    })
+}
+
+
+export let replyOnComment = (
+    req:Request,
+    res:Response,
+    next:NextFunction
+) => {
+    const postId = req.body["postId"];
+    const commentId = req.body["commentId"];
+    const text = req.body["text"];
+    db.collection("users").doc(req.body["userId"]).get().then(userDocSnap=>{
+        if(!userDocSnap.exists){
+            res.status(400).send({message:"user dont exist!"})
+            return;
+        }
+
+        let userData = userDocSnap.data();
+
+        db.collection(postCollection).doc(postId).get().then(docSnap=>{
+            let docData = docSnap.data();
+            console.log(docData);
+            docData.comment = docData.comment.map(comment=>{
+                if(comment.commentId === commentId){
+                    if(!comment.replies){
+                        comment.replies = []
+                    }
+                    comment.replies.push({userId:req.body["userId"],userName:userData.name,commentId:suid(),text:text,Timestamp:new Date()})
+                    return comment
+                }
+                else{
+                    return comment;
+                }
+            })
+            console.log(docData);
+            db.collection(postCollection).doc(postId).update({
+                ...docData
+            }).then(result=>{
+                res.status(200).send({message:"reply added"})
+            }).catch(error=>{
+                console.log(error)
+                return res.status(400).json({message:"Something went Wrong!"})
+            })  
+        }).catch(error=>{
+            console.log(error)
+            return res.status(400).json({message:"Something went Wrong!"})
+        }) 
+    })
+}   
