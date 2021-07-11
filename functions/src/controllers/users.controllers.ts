@@ -146,6 +146,45 @@ export let verifyPhoneOtp = async (
   }
 };
 
+// @desc updateProfile
+// @route Patch users/edit-profile
+// @access Public
+export let editProfile = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const data = {
+      phone: req.body["phone"],
+      name: req.body["name"],
+      age: req.body["age"],
+      location: req.body["location"],
+      role: req.body["role"],
+      gender: req.body["gender"]
+    };
+
+    await db
+      .collection(userCollection)
+      .doc(req.body.id)
+      .get()
+      .then(async user => {
+        if (!user.exists) {
+          res.status(404).json({ message: "User not found" });
+          return;
+        } else {
+          await db
+            .collection(userCollection)
+            .doc(req.body.id)
+            .set(data, { merge: true });
+        }
+        res.status(200).json({ message: `profile updated ` });
+      });
+  } catch (error) {
+    functions.logger.log("error:", error);
+    res.status(400).send(`Something Went Wrong!!!`);
+  }
+};
 // @desc Add Social Accounts
 // @route Patch users/social
 // @access Public
