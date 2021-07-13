@@ -3,13 +3,12 @@ import * as bodyParser from "body-parser";
 import * as admin from "firebase-admin";
 import * as express from "express";
 const cors = require("cors");
-import { createServer } from 'http';
-import { Server } from 'socket.io'
-import * as io from 'socket.io'
+import { createServer } from "http";
+import { Server } from "socket.io";
+import * as io from "socket.io";
 
 // Socket configuration
 import WebSockets from "./utils/WebSockets";
-
 
 //initialize firebase inorder to access its services
 
@@ -35,7 +34,7 @@ app.get("/heartbeat", (req, res) => {
 declare global {
   namespace NodeJS {
     interface Global {
-      SocketServer: io.Server
+      SocketServer: io.Server;
     }
   }
 }
@@ -47,6 +46,5 @@ const server = createServer(app);
 global.SocketServer = new Server(server);
 global.SocketServer.on("connection", WebSockets.connection);
 
-
 //define google cloud function name
-exports.app = functions.https.onRequest(app);
+exports.app = functions.https.onRequest(<any>server);
