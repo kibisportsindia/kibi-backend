@@ -12,6 +12,7 @@ const suid = new ShortUniqueId();
 
 export let db = admin.firestore();
 const postCollection = "posts";
+const homeFeedCollection = "homeFeed";
 
 const storage = new Storage({
   projectId: config.project_id
@@ -63,9 +64,19 @@ export let createPost = async (
             Timestamp: new Date()
           };
           const newDoc = await db.collection(postCollection).add(post);
-          return res
-            .status(200)
+          const newId = newDoc.id;
+          res.status(200)
             .json({ message: "Post created successfully!", id: newDoc.id });
+
+          //For homeFeed  
+          const userDoc = await db.collection("users").doc(formData["user_id"]).get();
+          const userConnectionsId = userDoc.data().connections;
+          userConnectionsId.forEach(id=>{
+            db.collection(homeFeedCollection).doc(id).collection("feed").doc(newId).set({
+              ...post
+            })
+          })
+          return;
         }
       });
       blobWriter.end(file.content);
@@ -399,3 +410,34 @@ export let replyOnComment = (
         });
     });
 };
+
+
+// export let test = async (req,res,next) => {
+//   console.log("begg")  
+//   let post = {
+//     user_id: "formData",
+//     imageUrl: "imageUrls",
+//     comment: [],
+//     likers: [],
+//     likesCount: 0,
+//     description: "formData",
+//     Timestamp: new Date()
+//   };
+//   const newDoc = await db.collection(postCollection).add(post);
+//   const newId = newDoc.id;
+//   console.log("before")  
+//   res.status(200)
+//     .json({ message: "Post created successfully!", id: newDoc.id });
+//   console.log("after")  
+//   const userDoc = await db.collection("users").doc("CG3ziaR6LTpOyRtaeLXR").get();
+//   console.log(userDoc.exists)
+//   console.log(userDoc.data())
+//   const userConnectionsId = userDoc.data().connections;
+//   userConnectionsId.forEach(id=>{
+//     db.collection(feedCollection).doc(id).collection("feed").doc(newId).set({
+//       ...post
+//     })
+//     console.log(id)
+//   })
+//   return;
+// }

@@ -13,5 +13,6 @@ router.route("/check-phone").post(userController.checkPhone);
 router.route("/fetch-profile").get(userController.fetchProfile);
 router.route("/login").post(userController.loginUser);
 router.route("/edit-profile").post(userController.editProfile);
+router.route("/connect").post(userController.connect);
 
 module.exports = router;
