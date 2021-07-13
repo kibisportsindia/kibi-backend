@@ -21,11 +21,7 @@ const storage = new Storage({
 
 const bucket = storage.bucket(`${config.project_id}.appspot.com`);
 
-export let createPost = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+export let createPost = async (req,res,next) => {
   try {
     const formData = await formParser.parser(req, MAX_SIZE);
     const files = formData.files;
@@ -55,7 +51,7 @@ export let createPost = async (
         imageUrls.push(publicUrl);
         if (imageUrls.length === noOfImages) {
           let post: Post = {
-            user_id: formData["user_id"],
+            user_id: req.user.id,
             imageUrl: imageUrls,
             comment: [],
             likers: [],
@@ -69,7 +65,7 @@ export let createPost = async (
             .json({ message: "Post created successfully!", id: newDoc.id });
 
           //For homeFeed  
-          const userDoc = await db.collection("users").doc(formData["user_id"]).get();
+          const userDoc = await db.collection("users").doc(req.user.id).get();
           const userConnectionsId = userDoc.data().connections;
           userConnectionsId.forEach(id=>{
             db.collection(homeFeedCollection).doc(id).collection("feed").doc(newId).set({
@@ -87,15 +83,11 @@ export let createPost = async (
   }
 };
 
-export let getPosts = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+export let getPosts = async (req,res,next) => {
   //user_id==id of author
   try {
-    const formData = await formParser.parser(req, MAX_SIZE);
-    const user_id = formData["user_id"];
+    //const formData = await formParser.parser(req, MAX_SIZE);
+    const user_id = req.user.id;
     console.log(user_id);
     await db
       .collection(postCollection)
@@ -121,11 +113,7 @@ export let getPosts = async (
   }
 };
 
-export let updatePost = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+export let updatePost = async (req,res,next) => {
   try {
     const formData = await formParser.parser(req, MAX_SIZE);
     const files = formData.files;
@@ -163,7 +151,7 @@ export let updatePost = async (
             imageUrls.push(publicUrl);
             if (imageUrls.length === files.length) {
               let post: Post = {
-                user_id: formData["user_id"],
+                user_id: req.user.id,
                 imageUrl: imageUrls,
                 comment: [],
                 likers: [],
@@ -197,37 +185,40 @@ export let updatePost = async (
   }
 };
 
-export let deletePost = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+export let deletePost = async (req,res,next) => {
   const formData = await formParser.parser(req, MAX_SIZE);
   let postId = formData["postId"];
-  await db
-    .collection(postCollection)
-    .doc(postId)
-    .delete()
-    .then(() => {
-      res.status(200).json({ message: "Post deleted successfully" });
-      return;
-    })
-    .catch(error => {
-      console.log(error);
-      return res.status(400).json({ message: "Something went Wrong!" });
-    });
+  const authorId = (await db.collection(postCollection).doc(postId).get()).data().user_id;
+  if(authorId === req.user.id){
+    await db
+      .collection(postCollection)
+      .doc(postId)
+      .delete()
+      .then(async () => {
+        res.status(200).json({ message: "Post deleted successfully" });
+        
+        const userDoc = await db.collection("users").doc(req.user.id).get();
+          const userConnectionsId = userDoc.data().connections;
+          userConnectionsId.forEach(async id=>{
+              await db.collection(homeFeedCollection).doc(id).collection("feed").doc(postId).delete();
+        })
+        return;
+      })
+      .catch(error => {
+        console.log(error);
+        return res.status(400).json({ message: "Something went Wrong!" });
+      });
+  }else{
+    return res.status(400).json({ message: "You are not authorized to Delete this Post!!" });
+  }
 };
 
-export let likePost = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+export let likePost = async (req,res,next) => {
   try {
     const formData = await formParser.parser(req, MAX_SIZE);
     const postId = formData["postId"];
     //here userId is the id of that user who is liking this post
-    const userId = formData["userId"];
+    const userId = req.user.id;
     db.collection(postCollection)
       .doc(postId)
       .get()
@@ -259,16 +250,12 @@ export let likePost = async (
   }
 };
 
-export let commentOnPost = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+export let commentOnPost = async (req,res,next) => {
   const postId = req.body["postId"];
   const text = req.body["text"];
   console.log(req.body);
   db.collection("users")
-    .doc(req.body["userId"])
+    .doc(req.user.id)
     .get()
     .then(userDocSnap => {
       if (!userDocSnap.exists) {
@@ -286,7 +273,7 @@ export let commentOnPost = async (
           }
           let docData = docSnap.data();
           let comment = {
-            userId: req.body["userId"],
+            userId: req!.user.id,
             userName: userData.name,
             commentId: suid(),
             text: text,
@@ -314,11 +301,7 @@ export let commentOnPost = async (
     });
 };
 
-export let deleteComment = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+export let deleteComment = (req,res,next) => {
   let postId = req.body["postId"];
   let commentId = req.body["commentId"];
   db.collection(postCollection)
@@ -326,6 +309,9 @@ export let deleteComment = (
     .get()
     .then(docSnap => {
       let docData = docSnap.data();
+      if(docData.userId !== req.user.id){
+        res.status(401).send({message:"You are not authorized to delete this comment!"})
+      }
       docData.comment = docData.comment.filter(
         comment => comment.commentId !== commentId
       );
@@ -348,16 +334,12 @@ export let deleteComment = (
     });
 };
 
-export let replyOnComment = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+export let replyOnComment = (req,res,next) => {
   const postId = req.body["postId"];
   const commentId = req.body["commentId"];
   const text = req.body["text"];
   db.collection("users")
-    .doc(req.body["userId"])
+    .doc(req.user.id)
     .get()
     .then(userDocSnap => {
       if (!userDocSnap.exists) {
@@ -379,7 +361,7 @@ export let replyOnComment = (
                 comment.replies = [];
               }
               comment.replies.push({
-                userId: req.body["userId"],
+                userId: req.user.id,
                 userName: userData.name,
                 commentId: suid(),
                 text: text,
@@ -412,32 +394,32 @@ export let replyOnComment = (
 };
 
 
-// export let test = async (req,res,next) => {
-//   console.log("begg")  
-//   let post = {
-//     user_id: "formData",
-//     imageUrl: "imageUrls",
-//     comment: [],
-//     likers: [],
-//     likesCount: 0,
-//     description: "formData",
-//     Timestamp: new Date()
-//   };
-//   const newDoc = await db.collection(postCollection).add(post);
-//   const newId = newDoc.id;
-//   console.log("before")  
-//   res.status(200)
-//     .json({ message: "Post created successfully!", id: newDoc.id });
-//   console.log("after")  
-//   const userDoc = await db.collection("users").doc("CG3ziaR6LTpOyRtaeLXR").get();
-//   console.log(userDoc.exists)
-//   console.log(userDoc.data())
-//   const userConnectionsId = userDoc.data().connections;
-//   userConnectionsId.forEach(id=>{
-//     db.collection(feedCollection).doc(id).collection("feed").doc(newId).set({
-//       ...post
-//     })
-//     console.log(id)
-//   })
-//   return;
-// }
+export let test = async (req,res,next) => {
+  console.log("begg")  
+  let post = {
+    user_id: "formData",
+    imageUrl: "imageUrls",
+    comment: [],
+    likers: [],
+    likesCount: 0,
+    description: "formData",
+    Timestamp: new Date()
+  };
+  const newDoc = await db.collection(postCollection).add(post);
+  const newId = newDoc.id;
+  console.log("before")  
+  res.status(200)
+    .json({ message: "Post created successfully!", id: newDoc.id });
+  console.log("after")  
+  const userDoc = await db.collection("users").doc("CG3ziaR6LTpOyRtaeLXR").get();
+  console.log(userDoc.exists)
+  console.log(userDoc.data())
+  const userConnectionsId = userDoc.data().connections;
+  userConnectionsId.forEach(id=>{
+    db.collection("feed").doc(id).collection("feed").doc(newId).set({
+      ...post
+    })
+    console.log(id)
+  })
+  return;
+}

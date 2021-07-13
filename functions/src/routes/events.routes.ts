@@ -1,6 +1,7 @@
 import * as express from "express";
 import * as eventController from "../controllers/events.controller";
 const router = express.Router();
+const authUser = require('../middlewares/auth-user');
 
 router.route("/add-event").post(eventController.addEvent);
 router.route("/get-events").get(eventController.getEvents);

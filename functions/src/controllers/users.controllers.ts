@@ -12,7 +12,7 @@ export let db = admin.firestore();
 db.settings({ ignoreUndefinedProperties: true });
 const userCollection = "users";
 const invitationCollection = "invitation";
-
+const homeFeedCollection = "homeFeed";
 const client = new Twilio(configTwilio.accountSID, configTwilio.authToken);
 
 // @desc SignUp
@@ -451,4 +451,21 @@ export let connect = async (req,res) => {
     res.status(400).send(`Something Went Wrong`);
     return;
   }
+}
+
+
+export let getFeed = async(req,res) => {
+  //const loggedInUserId = "1y3pndxfqyJnCO8TsFwY";
+  const loggedInUserId = req.user.id;
+  console.log(loggedInUserId)
+  const docSnap = await db.collection(homeFeedCollection).doc(loggedInUserId).collection("feed").get();
+  console.log(docSnap.empty)
+  const feedPost = [];
+  let index = 0;
+  docSnap.forEach(doc=>{
+    feedPost.push(doc.data());
+    feedPost[index++].id = doc.id;
+  })
+  res.status(200).send({posts:feedPost})
+  return;
 }
