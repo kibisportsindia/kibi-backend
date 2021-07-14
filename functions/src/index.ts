@@ -3,12 +3,12 @@ import * as bodyParser from "body-parser";
 import * as admin from "firebase-admin";
 import * as express from "express";
 const cors = require("cors");
-import { createServer } from "http";
-import { Server } from "socket.io";
-import * as io from "socket.io";
+// import { createServer } from "http";
+// import { Server } from "socket.io";
+// import * as io from "socket.io";
 
 // Socket configuration
-import WebSockets from "./utils/WebSockets";
+// import WebSockets from "./utils/WebSockets";
 
 //initialize firebase inorder to access its services
 
@@ -27,24 +27,25 @@ app.use("/user", require("./routes/users.routes"));
 app.use("/event", require("./routes/events.routes"));
 app.use("/tutorials", require("./routes/tutorials.routes"));
 app.use("/post", require("./routes/posts.routes"));
+app.use("/room", require("./routes/chatrooms.routes"));
 app.get("/heartbeat", (req, res) => {
   res.status(200).json(`Running`);
 });
 
-declare global {
-  namespace NodeJS {
-    interface Global {
-      SocketServer: io.Server;
-    }
-  }
-}
+// declare global {
+//   namespace NodeJS {
+//     interface Global {
+//       SocketServer: io.Server;
+//     }
+//   }
+// }
 
 /** Create HTTP server. */
-const server = createServer(app);
+// const server = createServer(app);
 
-/** Create socket connection */
-global.SocketServer = new Server(server);
-global.SocketServer.on("connection", WebSockets.connection);
+// /** Create socket connection */
+// global.SocketServer = new Server(server);
+// global.SocketServer.on("connection", WebSockets.connection);
 
 //define google cloud function name
-exports.app = functions.https.onRequest(<any>server);
+exports.app = functions.https.onRequest(app);
