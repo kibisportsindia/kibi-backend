@@ -457,8 +457,37 @@ export let connect = async (req,res) => {
 export let getFeed = async(req,res) => {
   //const loggedInUserId = "1y3pndxfqyJnCO8TsFwY";
   const loggedInUserId = req.user.id;
+  const page = req.query.page;
+  const docId = req.query.lastDocId;
+  let postPerPage = 2;
+  console.log(page)
   console.log(loggedInUserId)
-  const docSnap = await db.collection(homeFeedCollection).doc(loggedInUserId).collection("feed").get();
+  
+  let docSnap;
+  
+  if(page==='1'){
+    console.log("in if")
+    docSnap = await db.collection(homeFeedCollection)
+                    .doc(loggedInUserId)
+                    .collection("feed")
+                    .orderBy("Timestamp","desc")
+                    .limit(postPerPage)
+                    .get();
+  }else{
+    let lastSnap = await db.collection(homeFeedCollection)
+                        .doc(loggedInUserId)
+                        .collection("feed")
+                        .doc(docId)
+                        .get();
+    docSnap = await db.collection(homeFeedCollection)
+                    .doc(loggedInUserId)
+                    .collection("feed")
+                    .orderBy("Timestamp","desc")
+                    .startAfter(lastSnap)
+                    .limit(postPerPage)
+                    .get();
+  }
+  
   console.log(docSnap.empty)
   const feedPost = [];
   let index = 0;
@@ -466,6 +495,10 @@ export let getFeed = async(req,res) => {
     feedPost.push(doc.data());
     feedPost[index++].id = doc.id;
   })
-  res.status(200).send({posts:feedPost})
+  let lastDocId;
+  if(!docSnap.empty){
+    lastDocId = docSnap.docs[docSnap.docs.length - 1].id;
+  }
+  res.status(200).send({feedPosts:feedPost,lastDocId:lastDocId})
   return;
 }

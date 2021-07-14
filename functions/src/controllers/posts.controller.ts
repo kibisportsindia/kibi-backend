@@ -1,7 +1,6 @@
 import * as admin from "firebase-admin";
 import * as config from "../config/config.json";
 import { Storage } from "@google-cloud/storage";
-import { Request, Response, NextFunction } from "express";
 const formParser = require("../utils/formParser");
 import { Post } from "../models/Post";
 const { v4: uuidv4 } = require("uuid");
@@ -67,6 +66,9 @@ export let createPost = async (req,res,next) => {
           //For homeFeed  
           const userDoc = await db.collection("users").doc(req.user.id).get();
           const userConnectionsId = userDoc.data().connections;
+          await db.collection(homeFeedCollection).doc(req.user.id).collection("feed").doc(newId).set({
+            ...post
+          })
           userConnectionsId.forEach(id=>{
             db.collection(homeFeedCollection).doc(id).collection("feed").doc(newId).set({
               ...post
@@ -162,7 +164,7 @@ export let updatePost = async (req,res,next) => {
               db.collection(postCollection)
                 .doc(formData["post_id"])
                 .update(post)
-                .then(() => {
+                .then( async () => {
                   res
                     .status(200)
                     .json({ message: "Post Update successfully!" });
@@ -172,6 +174,19 @@ export let updatePost = async (req,res,next) => {
                     const img = bucket.file(imageName);
                     img.delete();
                   });
+
+                  //feed update
+
+                  const userDoc = await db.collection("users").doc(req.user.id).get();
+                  const userConnectionsId = userDoc.data().connections;
+                  await db.collection(homeFeedCollection).doc(req.user.id).collection("feed").doc(formData["post_id"]).update({
+                    post
+                  });
+                  userConnectionsId.forEach(id=>{
+                  db.collection(homeFeedCollection).doc(id).collection("feed").doc(formData["post_id"]).update({
+                      post
+                    })
+                  })
                   return;
                 });
             }
@@ -199,6 +214,7 @@ export let deletePost = async (req,res,next) => {
         
         const userDoc = await db.collection("users").doc(req.user.id).get();
           const userConnectionsId = userDoc.data().connections;
+          await db.collection(homeFeedCollection).doc(req.user.id).collection("feed").doc(postId).delete();
           userConnectionsId.forEach(async id=>{
               await db.collection(homeFeedCollection).doc(id).collection("feed").doc(postId).delete();
         })
@@ -394,32 +410,35 @@ export let replyOnComment = (req,res,next) => {
 };
 
 
-export let test = async (req,res,next) => {
-  console.log("begg")  
-  let post = {
-    user_id: "formData",
-    imageUrl: "imageUrls",
-    comment: [],
-    likers: [],
-    likesCount: 0,
-    description: "formData",
-    Timestamp: new Date()
-  };
-  const newDoc = await db.collection(postCollection).add(post);
-  const newId = newDoc.id;
-  console.log("before")  
-  res.status(200)
-    .json({ message: "Post created successfully!", id: newDoc.id });
-  console.log("after")  
-  const userDoc = await db.collection("users").doc("CG3ziaR6LTpOyRtaeLXR").get();
-  console.log(userDoc.exists)
-  console.log(userDoc.data())
-  const userConnectionsId = userDoc.data().connections;
-  userConnectionsId.forEach(id=>{
-    db.collection("feed").doc(id).collection("feed").doc(newId).set({
-      ...post
-    })
-    console.log(id)
-  })
-  return;
-}
+// export let test = async (req,res,next) => {
+//   console.log("begg")  
+//   let post = {
+//     user_id: "Latest",
+//     imageUrl: "Latest",
+//     comment: [],
+//     likers: [],
+//     likesCount: 0,
+//     description: "Latest",
+//     Timestamp: new Date()
+//   };
+//   const newDoc = await db.collection(postCollection).add(post);
+//   const newId = newDoc.id;
+//   console.log("before")  
+//   res.status(200)
+//     .json({ message: "Post created successfully!", id: newDoc.id });
+//   console.log("after")  
+//   const userDoc = await db.collection("users").doc("CG3ziaR6LTpOyRtaeLXR").get();
+//   console.log(userDoc.exists)
+//   console.log(userDoc.data())
+//   const userConnectionsId = userDoc.data().connections;
+//   await db.collection(homeFeedCollection).doc("CG3ziaR6LTpOyRtaeLXR").collection("feed").doc(newId).set({
+//     ...post
+//   })
+//   userConnectionsId.forEach(id=>{
+//     db.collection("feed").doc(id).collection("feed").doc(newId).set({
+//       ...post
+//     })
+//     console.log(id)
+//   })
+//   return;
+// }

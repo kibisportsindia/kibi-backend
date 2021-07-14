@@ -14,6 +14,6 @@ router.post("/add-comment",authUser,postController.commentOnPost)
 router.post("/delete-comment",authUser,postController.deleteComment)
 router.post("/reply-comment",authUser,postController.replyOnComment)
 
-router.post("/test",postController.test)
+//router.post("/test",postController.test)
 
 module.exports = router
