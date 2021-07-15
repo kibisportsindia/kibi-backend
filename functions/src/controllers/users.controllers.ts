@@ -12,7 +12,7 @@ export let db = admin.firestore();
 db.settings({ ignoreUndefinedProperties: true });
 const userCollection = "users";
 const invitationCollection = "invitation";
-
+const homeFeedCollection = "homeFeed";
 const client = new Twilio(configTwilio.accountSID, configTwilio.authToken);
 
 // @desc SignUp
@@ -50,7 +50,8 @@ export let registerUsers = async (
             location: req.body["location"],
             role: req.body["role"],
             gender: req.body["gender"],
-            invited_by: inviteData["invited_by"]
+            invited_by: inviteData["invited_by"],
+            connections:[]
           };
 
           //mark invite code as true
@@ -426,3 +427,78 @@ export let fetchProfile = async (req, res) => {
     res.status(400).send(`Something Went Wrong`);
   }
 };
+
+
+export let connect = async (req,res) => {
+  try{
+    const loggedInUserId = req.user.id;
+    const mainUserId = req.body.userId;
+    const userDoc = await db.collection(userCollection).doc(mainUserId);
+    const userSnap = await userDoc.get();
+    const userData = userSnap.data();
+    if(userData.connections.includes(loggedInUserId)){
+      let index = userData.connections.indexOf(loggedInUserId);
+      userData.connections.splice(index,1);
+    }else{
+      userData.connections.push(loggedInUserId)
+    }
+    await userDoc.update({
+      ...userData
+    })
+    res.status(200).send({message:""})
+    return;
+  } catch( error ){
+    res.status(400).send(`Something Went Wrong`);
+    return;
+  }
+}
+
+
+export let getFeed = async(req,res) => {
+  //const loggedInUserId = "1y3pndxfqyJnCO8TsFwY";
+  const loggedInUserId = req.user.id;
+  const page = req.query.page;
+  const docId = req.query.lastDocId;
+  let postPerPage = 2;
+  console.log(page)
+  console.log(loggedInUserId)
+  
+  let docSnap;
+  
+  if(page==='1'){
+    console.log("in if")
+    docSnap = await db.collection(homeFeedCollection)
+                    .doc(loggedInUserId)
+                    .collection("feed")
+                    .orderBy("Timestamp","desc")
+                    .limit(postPerPage)
+                    .get();
+  }else{
+    let lastSnap = await db.collection(homeFeedCollection)
+                        .doc(loggedInUserId)
+                        .collection("feed")
+                        .doc(docId)
+                        .get();
+    docSnap = await db.collection(homeFeedCollection)
+                    .doc(loggedInUserId)
+                    .collection("feed")
+                    .orderBy("Timestamp","desc")
+                    .startAfter(lastSnap)
+                    .limit(postPerPage)
+                    .get();
+  }
+  
+  console.log(docSnap.empty)
+  const feedPost = [];
+  let index = 0;
+  docSnap.forEach(doc=>{
+    feedPost.push(doc.data());
+    feedPost[index++].id = doc.id;
+  })
+  let lastDocId;
+  if(!docSnap.empty){
+    lastDocId = docSnap.docs[docSnap.docs.length - 1].id;
+  }
+  res.status(200).send({feedPosts:feedPost,lastDocId:lastDocId})
+  return;
+}

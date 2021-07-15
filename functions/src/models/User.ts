@@ -7,6 +7,7 @@ export interface User {
   role: Role;
   gender: Gender;
   invited_by;
+  connections:Array<String>;
 }
 
 enum Role {
