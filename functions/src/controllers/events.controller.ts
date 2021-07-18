@@ -25,12 +25,12 @@ export const addEvent = async (
 ) => {
   const formData = await formParser.parser(req, MAX_SIZE);
   const file = formData.files[0];
-  console.log("formdata ", formData);
-  console.log("file ", file);
-  console.log("Buffer", file.content);
+  // console.log("formdata ", formData);
+  // console.log("file ", file);
+  // console.log("Buffer", file.content);
   try {
     if (!file) {
-      res.status(400).send("Error, could not upload file ( file not found )");
+      res.status(400).send("File not found!)");
       return;
     }
     const blob = bucket.file('image-' + uuidv4() + "-" + file.filename);
