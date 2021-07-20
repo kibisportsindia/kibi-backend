@@ -3,3 +3,10 @@ export interface ChatRoom {
   userId: String;
   createdAt: Date;
 }
+
+export interface ChatMessage {
+  chatRoomId: String;
+  message: String;
+  postedByUser: String;
+  createdAt: Date;
+}
