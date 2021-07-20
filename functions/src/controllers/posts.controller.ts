@@ -195,7 +195,7 @@ export let updatePost = async (req, res, next) => {
                     .get();
                   const userConnectionsId = userDoc.data().connections;
                   await db
-                    .collection(homeFeedCollection)
+                    .collection("feed")
                     .doc(req.user.id)
                     .collection("feed")
                     .doc(formData["post_id"])
@@ -203,7 +203,8 @@ export let updatePost = async (req, res, next) => {
                       post,
                     });
                   userConnectionsId.forEach(async (id) => {
-                    db.collection(homeFeedCollection)
+                    await db
+                      .collection("feed")
                       .doc(id)
                       .collection("feed")
                       .doc(formData["post_id"])
@@ -212,14 +213,37 @@ export let updatePost = async (req, res, next) => {
                       });
 
                     let sharePost = await db
-                      .collection(homeFeedCollection)
+                      .collection(SharedPostCollection)
                       .doc(id)
-                      .collection("feed")
+                      .collection("posts")
                       .where("postId", "==", formData["post_id"])
                       .get();
 
                     if (!sharePost.empty) {
-                      sharePost.forEach((doc) => doc.ref.update({ ...post }));
+                      sharePost.forEach(async (doc) => {
+                        const userDoc = await db
+                          .collection(userCollection)
+                          .doc(id)
+                          .get();
+                        const userData = userDoc.data();
+
+                        await db
+                          .collection("feed")
+                          .doc(id)
+                          .collection("feed")
+                          .doc(doc.id)
+                          .update({ ...post });
+                        userData.connections.forEach(async (id) => {
+                          console.log(id);
+                          await db
+                            .collection("feed")
+                            .doc(id)
+                            .collection("feed")
+                            .doc(doc.id)
+                            .update({ ...post });
+                        });
+                        await doc.ref.update({ ...post });
+                      });
                     }
                   });
                   return;
@@ -266,26 +290,47 @@ export let deletePost = async (req, res, next) => {
         // if (!sharePostDoc.empty) {
         //   sharePostDoc.forEach((doc) => doc.ref.delete());
         // }
+        console.log("userConnectionsId", userConnectionsId);
         userConnectionsId.forEach(async (id) => {
+          console.log(id);
           await db
-            .collection(homeFeedCollection)
+            .collection("feed")
             .doc(id)
             .collection("feed")
             .doc(postId)
             .delete();
 
           let sharePost = await db
-            .collection(homeFeedCollection)
+            .collection(SharedPostCollection)
             .doc(id)
-            .collection("feed")
+            .collection("posts")
             .where("postId", "==", postId)
             .get();
 
+          console.log("sharePost.empty", sharePost.empty);
           if (!sharePost.empty) {
-            sharePost.forEach((doc) => doc.ref.delete());
+            sharePost.forEach(async (doc) => {
+              const userDoc = await db.collection(userCollection).doc(id).get();
+              const userData = userDoc.data();
+              doc.ref.delete();
+              await db
+                .collection("feed")
+                .doc(id)
+                .collection("feed")
+                .doc(doc.id)
+                .delete();
+
+              await userData.connections.forEach((id) => {
+                console.log(id);
+                db.collection(homeFeedCollection)
+                  .doc(id)
+                  .collection("feed")
+                  .doc(doc.id)
+                  .delete();
+              });
+            });
           }
         });
-
         return;
       })
       .catch((error) => {
@@ -483,41 +528,57 @@ export let replyOnComment = (req, res, next) => {
 
 export let addSharePost = async (req, res, next) => {
   try {
-    const formData = await formParser.parser(req, MAX_SIZE);
+    //const formData = await formParser.parser(req, MAX_SIZE);
+    console.log(req.user.id);
     const userDoc = await db.collection(userCollection).doc(req.user.id).get();
     const userData = userDoc.data();
-    await db
+    const sharedPostDoc = await db
       .collection(SharedPostCollection)
       .doc(req.user.id)
       .collection("posts")
       .add({
-        ...formData,
-        username: userData.name,
-        imageUrl: userData.imageUrl,
+        ...req.body,
+        sharedBy: userData.name,
+        sharedByImageUrl: userData.imageUrl,
         timestamp: new Date(),
+        likers: [],
+        likesCount: 0,
+        comment: [],
       });
 
+    console.log("sharedPostDoc.id", sharedPostDoc.id);
+    res.status(200).send({ message: "Post Shared Successfully!!" });
     db.collection(homeFeedCollection)
       .doc(req.user.id)
       .collection("feed")
-      .add({
-        ...formData,
-        username: userData.name,
-        imageUrl: userData.imageUrl,
+      .doc(sharedPostDoc.id)
+      .set({
+        ...req.body,
+        sharedBy: userData.name,
+        sharedByImageUrl: userData.imageUrl,
         timestamp: new Date(),
+        likers: [],
+        likesCount: 0,
+        comment: [],
       });
 
     userData.connections.forEach((id) => {
+      console.log(id);
       db.collection(homeFeedCollection)
         .doc(id)
         .collection("feed")
-        .add({
-          ...formData,
-          username: userData.name,
-          imageUrl: userData.imageUrl,
+        .doc(sharedPostDoc.id)
+        .set({
+          ...req.body,
+          sharedBy: userData.name,
+          sharedByImageUrl: userData.imageUrl,
           timestamp: new Date(),
+          likers: [],
+          likesCount: 0,
+          comment: [],
         });
     });
+    return;
   } catch (error) {
     console.log(error);
     return res.status(400).json({ message: "Something went Wrong!" });
@@ -526,13 +587,36 @@ export let addSharePost = async (req, res, next) => {
 
 export let deleteSharedPost = async (req, res, next) => {
   try {
-    await db
+    const docRef = await db
       .collection(SharedPostCollection)
       .doc(req.user.id)
       .collection("posts")
+      .doc(req.body.postId);
+    const docSnap = await docRef.get();
+    if (!docSnap.exists) {
+      res.status(400).send({ message: "Post not Found!" });
+      return;
+    }
+    await docRef.delete();
+    res.status(200).send({ message: "Post Deleted Successfully!!" });
+    const userDoc = await db.collection(userCollection).doc(req.user.id).get();
+    const userData = userDoc.data();
+
+    await db
+      .collection("feed")
+      .doc(req.user.id)
+      .collection("feed")
       .doc(req.body.postId)
       .delete();
-    res.status(200).send({ message: "Post Deleted Successfully!!" });
+
+    await userData.connections.forEach((id) => {
+      console.log(id);
+      db.collection(homeFeedCollection)
+        .doc(id)
+        .collection("feed")
+        .doc(req.body.postId)
+        .delete();
+    });
 
     return;
   } catch (error) {
