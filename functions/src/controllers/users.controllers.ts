@@ -2,11 +2,15 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { Request, Response, NextFunction } from "express";
 import * as jwt from "jsonwebtoken";
+import { Storage } from "@google-cloud/storage";
 import * as config from "../config/config.json";
 import { configTwilio } from "../config/config";
 import { Twilio } from "twilio";
 import { User, Social, Interests } from "../models/User";
+const { v4: uuidv4 } = require("uuid");
 var shortid = require("shortid");
+const formParser = require("../utils/formParser");
+const MAX_SIZE = 4000000;
 
 export let db = admin.firestore();
 db.settings({ ignoreUndefinedProperties: true });
@@ -14,6 +18,13 @@ const userCollection = "users";
 const invitationCollection = "invitation";
 const homeFeedCollection = "homeFeed";
 const client = new Twilio(configTwilio.accountSID, configTwilio.authToken);
+
+const storage = new Storage({
+  projectId: config.project_id,
+  // keyFilename: "./config/config.json"
+});
+
+const bucket = storage.bucket(`${config.project_id}.appspot.com`);
 
 // @desc SignUp
 // @route POST user/signup
@@ -29,7 +40,7 @@ export let registerUsers = async (
       .collection(invitationCollection)
       .where("invite_code", "==", req.body.invite_code)
       .get()
-      .then(async invite => {
+      .then(async (invite) => {
         if (invite.empty) {
           res.status(400).json({ message: "Invalid invite code " });
           return;
@@ -51,7 +62,8 @@ export let registerUsers = async (
             role: req.body["role"],
             gender: req.body["gender"],
             invited_by: inviteData["invited_by"],
-            connections:[]
+            connections: [],
+            imageUrl: "",
           };
 
           //mark invite code as true
@@ -85,13 +97,13 @@ export let sendOtp = async (
 ) => {
   try {
     const user = {
-      phone: req.body["phone"]
+      phone: req.body["phone"],
     };
     const data = await client.verify
       .services(configTwilio.serviceID)
       .verifications.create({
         to: `+91${user.phone}`,
-        channel: "sms"
+        channel: "sms",
       });
     res.status(200).json({
       message: "OTP Sent Successfully",
@@ -101,9 +113,9 @@ export let sendOtp = async (
           to: data.to,
           channel: data.channel,
           status: data.status,
-          dateCreated: data.dateCreated
-        }
-      }
+          dateCreated: data.dateCreated,
+        },
+      },
     });
     return;
   } catch (error) {
@@ -126,16 +138,16 @@ export let verifyPhoneOtp = async (
       .services(configTwilio.serviceID)
       .verificationChecks.create({
         to: "+91" + req.body.phone,
-        code: req.body.otp
+        code: req.body.otp,
       })
-      .then(check => {
+      .then((check) => {
         if (check.status === "approved") {
           res.status(200).json({
-            message: "Verification successfull"
+            message: "Verification successfull",
           });
         } else {
           res.status(401).json({
-            message: "Incorrect Otp Entered`."
+            message: "Incorrect Otp Entered`.",
           });
         }
       });
@@ -162,14 +174,14 @@ export let editProfile = async (
       age: req.body["age"],
       location: req.body["location"],
       role: req.body["role"],
-      gender: req.body["gender"]
+      gender: req.body["gender"],
     };
 
     await db
       .collection(userCollection)
       .doc(req.body.id)
       .get()
-      .then(async user => {
+      .then(async (user) => {
         if (!user.exists) {
           res.status(404).json({ message: "User not found" });
           return;
@@ -196,14 +208,14 @@ export let socialAccounts = async (
 ) => {
   try {
     const links: Social = {
-      social_links: req.body["social_links"]
+      social_links: req.body["social_links"],
     };
 
     await db
       .collection(userCollection)
       .doc(req.body.id)
       .get()
-      .then(async user => {
+      .then(async (user) => {
         if (!user.exists) {
           res.status(404).json({ message: "User not found" });
           return;
@@ -231,14 +243,14 @@ export let interests = async (
 ) => {
   try {
     const interests: Interests = {
-      interests: req.body["interests"]
+      interests: req.body["interests"],
     };
 
     await db
       .collection(userCollection)
       .doc(req.body.id)
       .get()
-      .then(async user => {
+      .then(async (user) => {
         if (!user.exists) {
           res.status(404).json({ message: "User not found" });
           return;
@@ -265,21 +277,21 @@ export let generateInvite = async (req, res) => {
       invited_by: req.body["invited_by"],
       invite_code: shortid.generate(),
       invited_timestamp: new Date(),
-      is_invite_verified: false
+      is_invite_verified: false,
     };
 
     await db
       .collection(invitationCollection)
       .doc()
       .set(invite, { merge: true })
-      .then(userUdated => {
+      .then((userUdated) => {
         console.log("new user", userUdated);
         if (userUdated)
           res.status(201).json({
             message: "User Invited Successfully",
             details: {
-              invite_code: invite.invite_code
-            }
+              invite_code: invite.invite_code,
+            },
           });
       });
   } catch (error) {
@@ -294,13 +306,13 @@ export let generateInvite = async (req, res) => {
 export let validateInvite = async (req, res) => {
   try {
     const user = {
-      invite_code: req.body["invite_code"]
+      invite_code: req.body["invite_code"],
     };
     await db
       .collection(invitationCollection)
       .where("invite_code", "==", user.invite_code)
       .get()
-      .then(invite => {
+      .then((invite) => {
         if (invite.empty) {
           res.status(200).json({ message: "Invalid invite code " });
           return;
@@ -308,7 +320,7 @@ export let validateInvite = async (req, res) => {
           console.log("invite", invite.docs[0].data());
           res.status(200).json({
             message: "Invite Code is Valid",
-            details: invite.docs[0].data()
+            details: invite.docs[0].data(),
           });
           return;
         }
@@ -325,14 +337,14 @@ export let validateInvite = async (req, res) => {
 export let checkPhone = async (req, res) => {
   try {
     const user = {
-      phone: req.body["phone"]
+      phone: req.body["phone"],
     };
 
     await db
       .collection(userCollection)
       .where("phone", "==", user.phone)
       .get()
-      .then(userData => {
+      .then((userData) => {
         if (userData.empty) {
           res.status(404).json({ message: "User not found" });
           return;
@@ -341,8 +353,8 @@ export let checkPhone = async (req, res) => {
             message: "User Found",
             details: {
               id: userData.docs[0].id,
-              phone: userData.docs[0].data().phone
-            }
+              phone: userData.docs[0].data().phone,
+            },
           });
           return;
         }
@@ -359,14 +371,14 @@ export let checkPhone = async (req, res) => {
 export let loginUser = async (req, res) => {
   try {
     const user = {
-      phone: req.body["phone"]
+      phone: req.body["phone"],
     };
 
     await db
       .collection(userCollection)
       .where("phone", "==", user.phone)
       .get()
-      .then(userData => {
+      .then((userData) => {
         if (userData.empty) {
           res.status(404).json({ message: "User not found" });
           return;
@@ -382,8 +394,8 @@ export let loginUser = async (req, res) => {
               message: "User Found",
               details: {
                 id: userData.docs[0].id,
-                phone: userData.docs[0].data().phone
-              }
+                phone: userData.docs[0].data().phone,
+              },
             });
           return;
         }
@@ -407,7 +419,7 @@ export let fetchProfile = async (req, res) => {
       .collection(userCollection)
       .doc(id)
       .get()
-      .then(userData => {
+      .then((userData) => {
         if (!userData.exists) {
           res.status(404).json({ message: "User not found" });
           return;
@@ -416,8 +428,8 @@ export let fetchProfile = async (req, res) => {
             message: "User Found",
             details: {
               id: userData.data().id,
-              data: userData.data()
-            }
+              data: userData.data(),
+            },
           });
           return;
         }
@@ -428,77 +440,116 @@ export let fetchProfile = async (req, res) => {
   }
 };
 
-
-export let connect = async (req,res) => {
-  try{
+export let connect = async (req, res) => {
+  try {
     const loggedInUserId = req.user.id;
     const mainUserId = req.body.userId;
     const userDoc = await db.collection(userCollection).doc(mainUserId);
     const userSnap = await userDoc.get();
     const userData = userSnap.data();
-    if(userData.connections.includes(loggedInUserId)){
+    if (userData.connections.includes(loggedInUserId)) {
       let index = userData.connections.indexOf(loggedInUserId);
-      userData.connections.splice(index,1);
-    }else{
-      userData.connections.push(loggedInUserId)
+      userData.connections.splice(index, 1);
+    } else {
+      userData.connections.push(loggedInUserId);
     }
     await userDoc.update({
-      ...userData
-    })
-    res.status(200).send({message:""})
+      ...userData,
+    });
+    res.status(200).send({ message: "" });
     return;
-  } catch( error ){
+  } catch (error) {
     res.status(400).send(`Something Went Wrong`);
     return;
   }
-}
+};
 
-
-export let getFeed = async(req,res) => {
+export let getFeed = async (req, res) => {
   //const loggedInUserId = "1y3pndxfqyJnCO8TsFwY";
   const loggedInUserId = req.user.id;
   const page = req.query.page;
   const docId = req.query.lastDocId;
   let postPerPage = 2;
-  console.log(page)
-  console.log(loggedInUserId)
-  
+  console.log(page);
+  console.log(loggedInUserId);
+
   let docSnap;
-  
-  if(page==='1'){
-    console.log("in if")
-    docSnap = await db.collection(homeFeedCollection)
-                    .doc(loggedInUserId)
-                    .collection("feed")
-                    .orderBy("Timestamp","desc")
-                    .limit(postPerPage)
-                    .get();
-  }else{
-    let lastSnap = await db.collection(homeFeedCollection)
-                        .doc(loggedInUserId)
-                        .collection("feed")
-                        .doc(docId)
-                        .get();
-    docSnap = await db.collection(homeFeedCollection)
-                    .doc(loggedInUserId)
-                    .collection("feed")
-                    .orderBy("Timestamp","desc")
-                    .startAfter(lastSnap)
-                    .limit(postPerPage)
-                    .get();
+
+  if (page === "1") {
+    console.log("in if");
+    docSnap = await db
+      .collection(homeFeedCollection)
+      .doc(loggedInUserId)
+      .collection("feed")
+      .orderBy("Timestamp", "desc")
+      .limit(postPerPage)
+      .get();
+  } else {
+    let lastSnap = await db
+      .collection(homeFeedCollection)
+      .doc(loggedInUserId)
+      .collection("feed")
+      .doc(docId)
+      .get();
+    docSnap = await db
+      .collection(homeFeedCollection)
+      .doc(loggedInUserId)
+      .collection("feed")
+      .orderBy("Timestamp", "desc")
+      .startAfter(lastSnap)
+      .limit(postPerPage)
+      .get();
   }
-  
-  console.log(docSnap.empty)
+
+  console.log(docSnap.empty);
   const feedPost = [];
   let index = 0;
-  docSnap.forEach(doc=>{
+  docSnap.forEach((doc) => {
     feedPost.push(doc.data());
     feedPost[index++].id = doc.id;
-  })
+  });
   let lastDocId;
-  if(!docSnap.empty){
+  if (!docSnap.empty) {
     lastDocId = docSnap.docs[docSnap.docs.length - 1].id;
   }
-  res.status(200).send({feedPosts:feedPost,lastDocId:lastDocId})
+  res.status(200).send({ feedPosts: feedPost, lastDocId: lastDocId });
   return;
-}
+};
+
+export let uploadProfileImage = async (req, res, next) => {
+  const formData = await formParser.parser(req, MAX_SIZE);
+  const file = formData.files[0];
+  // console.log("formdata ", formData);
+  // console.log("file ", file);
+  // console.log("Buffer", file.content);
+  try {
+    if (!file) {
+      res.status(400).send("File not found!)");
+      return;
+    }
+    const blob = bucket.file("image-" + uuidv4() + "-" + file.filename);
+    const blobWriter = blob.createWriteStream({
+      metadata: {
+        contentType: file.contentType,
+      },
+    });
+    blobWriter.on("error", (err) => next(err));
+    blobWriter.on("finish", async () => {
+      const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${
+        bucket.name
+      }/o/${encodeURI(blob.name)}?alt=media`;
+
+      console.log("url", publicUrl);
+      await db
+        .collection(userCollection)
+        .doc(req.user.id)
+        .update({ imageUrl: publicUrl });
+      res.status(200).send({ message: "image Uploaded successfully!" });
+    });
+    blobWriter.end(file.content);
+  } catch (error) {
+    functions.logger.log("error:", error);
+    res.status(400).send(`Something went wrong try again!!`);
+    return;
+  }
+};
