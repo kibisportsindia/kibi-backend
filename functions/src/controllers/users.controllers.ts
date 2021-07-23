@@ -469,7 +469,7 @@ export let getFeed = async (req, res) => {
   const loggedInUserId = req.user.id;
   const page = req.query.page;
   const docId = req.query.lastDocId;
-  let postPerPage = 2;
+  let postPerPage = 20;
   console.log(page);
   console.log(loggedInUserId);
 
