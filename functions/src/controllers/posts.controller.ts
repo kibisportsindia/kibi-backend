@@ -195,7 +195,7 @@ export let updatePost = async (req, res, next) => {
                     .get();
                   const userConnectionsId = userDoc.data().connections;
                   await db
-                    .collection("feed")
+                    .collection(homeFeedCollection)
                     .doc(req.user.id)
                     .collection("feed")
                     .doc(formData["post_id"])
@@ -204,7 +204,7 @@ export let updatePost = async (req, res, next) => {
                     });
                   userConnectionsId.forEach(async (id) => {
                     await db
-                      .collection("feed")
+                      .collection(homeFeedCollection)
                       .doc(id)
                       .collection("feed")
                       .doc(formData["post_id"])
@@ -228,7 +228,7 @@ export let updatePost = async (req, res, next) => {
                         const userData = userDoc.data();
 
                         await db
-                          .collection("feed")
+                          .collection(homeFeedCollection)
                           .doc(id)
                           .collection("feed")
                           .doc(doc.id)
@@ -236,7 +236,7 @@ export let updatePost = async (req, res, next) => {
                         userData.connections.forEach(async (id) => {
                           console.log(id);
                           await db
-                            .collection("feed")
+                            .collection(homeFeedCollection)
                             .doc(id)
                             .collection("feed")
                             .doc(doc.id)
@@ -294,7 +294,7 @@ export let deletePost = async (req, res, next) => {
         userConnectionsId.forEach(async (id) => {
           console.log(id);
           await db
-            .collection("feed")
+            .collection(homeFeedCollection)
             .doc(id)
             .collection("feed")
             .doc(postId)
@@ -314,7 +314,7 @@ export let deletePost = async (req, res, next) => {
               const userData = userDoc.data();
               doc.ref.delete();
               await db
-                .collection("feed")
+                .collection(homeFeedCollection)
                 .doc(id)
                 .collection("feed")
                 .doc(doc.id)
@@ -369,8 +369,25 @@ export let likePost = async (req, res, next) => {
           .update({
             ...docData,
           })
-          .then(() => {
+          .then(async () => {
             console.log("in then");
+            db.collection(homeFeedCollection)
+              .doc(docData.user_id)
+              .collection("feed")
+              .doc(postId)
+              .update({ ...docData });
+            const userSnap = await db
+              .collection(userCollection)
+              .doc(docData.user_id)
+              .get();
+            const userConnections = userSnap.data().connections;
+            userConnections.forEach((id) => {
+              db.collection(homeFeedCollection)
+                .doc(id)
+                .collection("feed")
+                .doc(postId)
+                .update({ ...docData });
+            });
             res.status(200).send();
             return;
           });
@@ -603,7 +620,7 @@ export let deleteSharedPost = async (req, res, next) => {
     const userData = userDoc.data();
 
     await db
-      .collection("feed")
+      .collection(homeFeedCollection)
       .doc(req.user.id)
       .collection("feed")
       .doc(req.body.postId)
