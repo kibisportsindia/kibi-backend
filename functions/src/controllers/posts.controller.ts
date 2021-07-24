@@ -344,22 +344,32 @@ export let deletePost = async (req, res, next) => {
 
 export let likePost = async (req, res, next) => {
   try {
-    const formData = await formParser.parser(req, MAX_SIZE);
-    const postId = formData["postId"];
+    const postId = req.body["postId"];
     //here userId is the id of that user who is liking this post
     const userId = req.user.id;
     db.collection(postCollection)
       .doc(postId)
       .get()
-      .then((doc) => {
+      .then(async (doc) => {
         let docData = doc.data();
-        if (docData.likers.includes(userId)) {
+        const likersId = docData.likers.map((obj) => obj.userId);
+        if (likersId.includes(userId)) {
           docData.likesCount = docData.likesCount - 1;
-          let userIndex = docData.likers.indexOf(userId);
+          let userIndex = likersId.indexOf(userId);
           docData.likers.splice(userIndex, 1);
         } else {
           docData.likesCount = docData.likesCount + 1;
-          docData.likers.push(userId);
+          const userSnap = await db
+            .collection(userCollection)
+            .doc(userId)
+            .get();
+          const userData = userSnap.data();
+          docData.likers.push({
+            userId: userId,
+            userName: userData.name,
+            userRole: userData.role,
+            userImageUrl: userData.imageUrl,
+          });
         }
         console.log(docData);
         db.collection(postCollection)
