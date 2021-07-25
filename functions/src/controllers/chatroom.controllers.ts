@@ -92,3 +92,74 @@ export let postMessageInChatRoom = async (
     return;
   }
 };
+
+// @desc Get Conversation By Room Id
+// @route GET room/:roomId
+// @access Private
+export let getConversationByRoomId = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { roomId } = req.params;
+    await db
+      .collection(chatRoomCollection)
+      .where("id", "==", roomId)
+      .get()
+      .then(async (room) => {
+        if (room.empty) {
+          res.status(404).json(`no room found with this ID, ${roomId}`);
+        }
+        const conversation = await db
+          .collection(ChatMessageCollection)
+          .where("chatRoomId", "==", roomId)
+          .get();
+
+        res.status(200).json({ success: true, data: conversation });
+        return;
+      });
+  } catch (error) {
+    res
+      .status(400)
+      .send(
+        `Something went wrong while getting a message by roomId, ERROR: ${error}`
+      );
+    return;
+  }
+};
+
+// @desc Mark Conversation Read By RoomId
+// @route PUT :roomId/mark-read
+// @access Private
+export let markConversationReadByRoomId = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { roomId } = req.params;
+    await db
+      .collection(chatRoomCollection)
+      .where("id", "==", roomId)
+      .get()
+      .then(async (room) => {
+        if (room.empty) {
+          res.status(404).json(`no room found with this ID, ${roomId}`);
+        }
+        //  This function not completed yet
+        const token = req.header("auth-user");
+        const decoded = jwt.verify(token, config.TOKEN_SECRET);
+        let id = decoded["id"];
+        res.status(200).json({ success: true, data: id });
+        return;
+      });
+  } catch (error) {
+    res
+      .status(400)
+      .send(
+        `Something went wrong while mark as read by RoomId, ERROR: ${error}`
+      );
+    return;
+  }
+};
