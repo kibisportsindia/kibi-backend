@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import * as functions from "firebase-functions";
 import * as config from "../config/config.json";
 import { Storage } from "@google-cloud/storage";
 const formParser = require("../utils/formParser");
@@ -35,9 +36,10 @@ export let addStory = async (req, res, next) => {
           contentType: file.contentType,
         },
       });
-      blobWriter.on("error", (err) =>
-        res.status(400).json({ message: "Error in File Uploading" })
-      );
+      blobWriter.on("error", (err) => {
+        functions.logger.log("addStory(Error in File Uploading)", err);
+        res.status(400).json({ message: "Error in File Uploading" });
+      });
 
       blobWriter.on("finish", async () => {
         const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${
@@ -110,6 +112,7 @@ export let addStory = async (req, res, next) => {
             return;
           } catch (error) {
             console.log(error);
+            functions.logger.log("addStory", error);
             return res.status(400).json({ message: "Something Went Wrong!" });
           }
         }
@@ -119,6 +122,7 @@ export let addStory = async (req, res, next) => {
     });
   } catch (error) {
     console.log(error);
+    functions.logger.log("addStory", error);
     return res.status(400).json({ message: "Something Went Wrong!" });
   }
 };
