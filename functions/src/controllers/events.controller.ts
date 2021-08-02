@@ -6,13 +6,13 @@ import { Event } from "../models/Events";
 import { Storage } from "@google-cloud/storage";
 const formParser = require("../utils/formParser");
 const MAX_SIZE = 4000000; // 4MB
-const { v4: uuidv4 } = require('uuid')
+const { v4: uuidv4 } = require("uuid");
 
 export let db = admin.firestore();
 const eventCollection = "events";
 
 const storage = new Storage({
-  projectId: config.project_id
+  projectId: config.project_id,
   // keyFilename: "./config/config.json"
 });
 
@@ -33,13 +33,13 @@ export const addEvent = async (
       res.status(400).send("File not found!)");
       return;
     }
-    const blob = bucket.file('image-' + uuidv4() + "-" + file.filename);
+    const blob = bucket.file("image-" + uuidv4() + "-" + file.filename);
     const blobWriter = blob.createWriteStream({
       metadata: {
-        contentType: file.contentType
-      }
+        contentType: file.contentType,
+      },
     });
-    blobWriter.on("error", err => next(err));
+    blobWriter.on("error", (err) => next(err));
     blobWriter.on("finish", async () => {
       const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${
         bucket.name
@@ -57,15 +57,19 @@ export const addEvent = async (
         charges: formData["charges"],
         benefits: formData["benefits"],
         phone: formData["phone"],
-        type: formData["type"]
+        type: formData["type"],
       };
       console.log("event is ", event);
       const newDoc = await db.collection(eventCollection).add(event);
+      functions.logger.log("addEvent:", {
+        message: "Event added",
+        id: newDoc.id,
+      });
       res.status(200).send({ message: "Event added", id: newDoc.id });
     });
     blobWriter.end(file.content);
   } catch (error) {
-    functions.logger.log("error:", error);
+    functions.logger.log("addEvent:", error);
     res.status(400).send(`Something went wrong try again!!`);
     return;
   }
@@ -84,14 +88,14 @@ export const getEvents = async (
       .collection(eventCollection)
       .where("type", "==", type)
       .get()
-      .then(eventData => {
+      .then((eventData) => {
         if (eventData.empty) {
           res.status(404).json({ message: "No Event Found" });
           return;
         }
 
         let data = [];
-        eventData.forEach(doc => {
+        eventData.forEach((doc) => {
           let id = doc.id;
           let docData = { id, ...doc.data() };
           data.push(docData);
@@ -123,19 +127,19 @@ export const updateEvent = async (
     db.collection(eventCollection)
       .doc(id)
       .get()
-      .then(async doc => {
+      .then(async (doc) => {
         let imageUrl = doc.data().image;
         const fileName = imageUrl.split("o/")[1].split("?")[0];
         console.log("fileName", fileName);
         const img = bucket.file(fileName);
-        img.delete().then(result => {
+        img.delete().then((result) => {
           const blob = bucket.file(file.filename);
           const blobWriter = blob.createWriteStream({
             metadata: {
-              contentType: file.contentType
-            }
+              contentType: file.contentType,
+            },
           });
-          blobWriter.on("error", err => next(err));
+          blobWriter.on("error", (err) => next(err));
           blobWriter.on("finish", async () => {
             const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${
               bucket.name
@@ -154,25 +158,31 @@ export const updateEvent = async (
                 charges: formData["charges"],
                 benefits: formData["benefits"],
                 phone: formData["phone"],
-                type: formData["type"]
+                type: formData["type"],
               })
               .then(() => {
+                functions.logger.log("updateEvent:", {
+                  messgae: "Event Update Successfully",
+                });
                 res.status(200).json({ messgae: "Event Update Successfully" });
               })
-              .catch(err => {
+              .catch((err) => {
                 console.log(1, err);
+                functions.logger.log("updateEvent:", err);
                 res.status(400).json({ messgae: "Something Went Wrong!" });
               });
           });
           blobWriter.end(file.content);
         });
       })
-      .catch(err => {
+      .catch((err) => {
         console.log(1, err);
+        functions.logger.log("updateEvent:", err);
         res.status(400).json({ message: "Something went wrong!!" });
       });
   } catch (error) {
     console.log(1, error);
+    functions.logger.log("updateEvent:", error);
     res.status(400).send(`Something went wrong!!`);
   }
 };
@@ -187,22 +197,19 @@ export const deleteEvent = async (
     db.collection(eventCollection)
       .doc(id)
       .get()
-      .then(async doc => {
+      .then(async (doc) => {
         let imageUrl = doc.data().image;
         const fileName = imageUrl.split("o/")[1].split("?")[0];
         console.log("fileName", fileName);
-        await db
-          .collection(eventCollection)
-          .doc(id)
-          .delete();
+        await db.collection(eventCollection).doc(id).delete();
         const file = bucket.file(fileName);
         file
           .delete()
-          .then(result => {
+          .then((result) => {
             res.status(200).json({ message: "Event Deleted Successfully" });
             console.log("FILE DELETED");
           })
-          .catch(err => {
+          .catch((err) => {
             res.status(400).json({ message: "Something went wrong!!" });
           });
       });

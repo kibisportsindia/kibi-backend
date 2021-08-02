@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import * as functions from "firebase-functions";
 import * as config from "../config/config.json";
 import { Storage } from "@google-cloud/storage";
 const formParser = require("../utils/formParser");
@@ -42,9 +43,10 @@ export let createPost = async (req, res, next) => {
           contentType: file.contentType,
         },
       });
-      blobWriter.on("error", (err) =>
-        res.status(400).json({ message: "Error in File Uploading" })
-      );
+      blobWriter.on("error", (err) => {
+        res.status(400).json({ message: "Error in File Uploading" });
+        functions.logger.log("createPost(Error in File Uploading)", err);
+      });
       blobWriter.on("finish", async () => {
         const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${
           bucket.name
@@ -92,6 +94,7 @@ export let createPost = async (req, res, next) => {
     });
   } catch (error) {
     console.log(error);
+    functions.logger.log("createPost(Error)", error);
     return res.status(400).json({ message: "Something Went Wrong!" });
   }
 };
@@ -153,9 +156,10 @@ export let updatePost = async (req, res, next) => {
               contentType: file.contentType,
             },
           });
-          blobWriter.on("error", (err) =>
-            res.status(400).json({ message: "Error in File Uploading" })
-          );
+          blobWriter.on("error", (err) => {
+            res.status(400).json({ message: "Error in File Uploading" });
+            functions.logger.log("updatePost(Error in File Uploading)", err);
+          });
 
           blobWriter.on("finish", async () => {
             const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${
@@ -253,6 +257,7 @@ export let updatePost = async (req, res, next) => {
       });
   } catch (error) {
     console.log(error);
+    functions.logger.log("updatePost(Error)", error);
     return res.status(400).json({ message: "Something went Wrong!" });
   }
 };
