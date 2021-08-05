@@ -30,7 +30,7 @@ export let addTutorial = async (
   try {
     let fileObj = { imageUrl: "", videoUrl: "" };
     const formData = await formParser.parser(req, MAX_SIZE);
-    // console.log(formData.files.length)
+    console.log(formData.files.length);
     if (formData.files.length < 2) {
       res.status(400).json({ message: "File is missing" });
     }
@@ -40,16 +40,18 @@ export let addTutorial = async (
       } else {
         file.filename = "video-" + uuidv4() + "-" + file.filename;
       }
-      // console.log(file)
+      console.log(file);
       const blob = bucket.file(file.filename);
       const blobWriter = blob.createWriteStream({
         metadata: {
           contentType: file.contentType,
         },
       });
-      blobWriter.on("error", (err) =>
-        functions.logger.log("addTutorial:(error in file uploading)", err)
-      );
+      blobWriter.on("error", (err) => {
+        console.log(err);
+        functions.logger.log("addTutorial:(error in file uploading)", err);
+        //res.send("Error in file Uploading!!");
+      });
       blobWriter.on("finish", async () => {
         const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${
           bucket.name
@@ -415,5 +417,22 @@ export let deleteTutorial = (
   } catch (error) {
     console.log(error);
     res.status(400).json({ message: "Something went wrong!!" });
+  }
+};
+
+export let getATutorialById = async (req, res, next) => {
+  try {
+    const categoryNumber = req.query.categoryNumber;
+    const tutorialId = req.query.tutorialId;
+    const docSnap = await db
+      .collection(tutorialsCollection)
+      .where("categoryNumber", "==", categoryNumber)
+      .get();
+    const docData = docSnap.docs[0].data();
+    let tutorial = docData.data.filter((tut) => tut.id === tutorialId);
+    res.status(200).send({ message: tutorial[0] });
+  } catch (error) {
+    console.log(error);
+    res.status(400).send({ message: "something went wrong!" });
   }
 };
