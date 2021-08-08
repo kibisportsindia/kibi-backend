@@ -4,7 +4,7 @@ import { ChatRoom, ChatMessage } from "../models/ChatRoom";
 import * as jwt from "jsonwebtoken";
 import * as config from "../config/config.json";
 const chatRoomCollection = "rooms";
-const ChatMessageCollection = "chatMessages";
+const chatMessageCollection = "chatMessages";
 
 export let db = admin.firestore();
 
@@ -60,26 +60,28 @@ export let postMessageInChatRoom = async (
 ) => {
   try {
     const { roomId } = req.params;
+    console.log(roomId);
     await db
-      .collection(ChatMessageCollection)
-      .where("id", "==", roomId)
+      .collection(chatRoomCollection)
+      .doc(roomId)
       .get()
       .then(async (availabeRoom) => {
-        if (availabeRoom.empty) {
+        if (!availabeRoom.exists) {
           res.status(404).json(`no room found with this ID, ${roomId}`);
+          return;
         } else {
           const token = req.header("auth-user");
           const decoded = jwt.verify(token, config.TOKEN_SECRET);
           let id = decoded["id"];
 
           const chatMessage: ChatMessage = {
-            chatRoomId: availabeRoom.docs[0].data().id,
+            chatRoomId: roomId,
             message: req.body["message"],
             postedByUser: id,
             createdAt: new Date(),
           };
           const newMessage = await db
-            .collection(ChatMessageCollection)
+            .collection(chatMessageCollection)
             .add(chatMessage);
           res.status(201).json({ status: "success", message: newMessage.id });
           return;
@@ -112,7 +114,7 @@ export let getConversationByRoomId = async (
           res.status(404).json(`no room found with this ID, ${roomId}`);
         }
         const conversation = await db
-          .collection(ChatMessageCollection)
+          .collection(chatMessageCollection)
           .where("chatRoomId", "==", roomId)
           .get();
 
