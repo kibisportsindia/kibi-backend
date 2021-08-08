@@ -25,6 +25,7 @@ export const addEvent = async (
 ) => {
   const formData = await formParser.parser(req, MAX_SIZE);
   const file = formData.files[0];
+  console.log("ADD EVENT", formData);
   // console.log("formdata ", formData);
   // console.log("file ", file);
   // console.log("Buffer", file.content);
