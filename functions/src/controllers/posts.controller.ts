@@ -27,7 +27,7 @@ export let createPost = async (req, res, next) => {
   try {
     const formData = await formParser.parser(req, MAX_SIZE);
     const files = formData.files;
-    console.log(files);
+    console.log("CREATE POST ", formData);
     const noOfImages = files.length;
     const imageUrls = [];
 
