@@ -25,7 +25,7 @@ export const addEvent = async (
 ) => {
   const formData = await formParser.parser(req, MAX_SIZE);
   const file = formData.files[0];
-  console.log("ADD EVENT", formData);
+  console.log("ADD EVENT(req body)", formData);
   // console.log("formdata ", formData);
   // console.log("file ", file);
   // console.log("Buffer", file.content);
@@ -40,7 +40,10 @@ export const addEvent = async (
         contentType: file.contentType,
       },
     });
-    blobWriter.on("error", (err) => next(err));
+    blobWriter.on("error", (err) => {
+      functions.logger.log("addEvent(Error in File Uploading)", err);
+      res.status(400).json({ message: "Error in File Uploading" });
+    });
     blobWriter.on("finish", async () => {
       const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${
         bucket.name
@@ -63,7 +66,7 @@ export const addEvent = async (
       console.log("event is ", event);
       const newDoc = await db.collection(eventCollection).add(event);
       functions.logger.log("addEvent:", {
-        message: "Event added",
+        message: "Event added Successfully!",
         id: newDoc.id,
       });
       res.status(200).send({ message: "Event added", id: newDoc.id });
