@@ -17,7 +17,7 @@ const tutorialsCollection = "tutorials";
 
 const storage = new Storage({
   projectId: config.project_id,
-  keyFilename: "../config/config.json",
+  //keyFilename: "../config/config.json",
 });
 
 const bucket = storage.bucket(`${config.project_id}.appspot.com`);
