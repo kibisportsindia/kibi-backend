@@ -6,6 +6,7 @@ const formParser = require("../utils/formParser");
 import { Post } from "../models/Post";
 const { v4: uuidv4 } = require("uuid");
 const MAX_SIZE = 4000000; // 4MB
+const axios = require("axios");
 // const ShortUniqueId = require("short-unique-id");
 
 // const suid = new ShortUniqueId();
@@ -22,6 +23,22 @@ const storage = new Storage({
 });
 
 const bucket = storage.bucket(`${config.project_id}.appspot.com`);
+
+let pushNotifications = async (notificationBody) => {
+    let axiosConfig = {
+      headers:{
+        'Authorization':`key=${config.fcmServerKey}`,
+        'Content-Type':'application/json'
+      }
+    }
+    let url = "https://fcm.googleapis.com/fcm/send";
+    let data = notificationBody;
+    try{
+      await axios.post(url,data,axiosConfig);
+    }catch(error){
+      console.log(error)
+    }
+}
 
 export let createPost = async (req, res, next) => {
   try {
