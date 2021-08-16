@@ -17,7 +17,7 @@ const tutorialsCollection = "tutorials";
 
 const storage = new Storage({
   projectId: config.project_id,
-  keyFilename: "../config/config.json",
+  //keyFilename: "../config/config.json",
 });
 
 const bucket = storage.bucket(`${config.project_id}.appspot.com`);
@@ -30,7 +30,7 @@ export let addTutorial = async (
   try {
     let fileObj = { imageUrl: "", videoUrl: "" };
     const formData = await formParser.parser(req, MAX_SIZE);
-    // console.log(formData.files.length)
+    console.log(formData.files.length);
     if (formData.files.length < 2) {
       res.status(400).json({ message: "File is missing" });
     }
@@ -40,14 +40,18 @@ export let addTutorial = async (
       } else {
         file.filename = "video-" + uuidv4() + "-" + file.filename;
       }
-      // console.log(file)
+      console.log(file);
       const blob = bucket.file(file.filename);
       const blobWriter = blob.createWriteStream({
         metadata: {
           contentType: file.contentType,
         },
       });
-      blobWriter.on("error", (err) => next(err));
+      blobWriter.on("error", (err) => {
+        console.log(err);
+        functions.logger.log("addTutorial:(error in file uploading)", err);
+        //res.send("Error in file Uploading!!");
+      });
       blobWriter.on("finish", async () => {
         const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${
           bucket.name
@@ -130,6 +134,13 @@ export let addTutorial = async (
                 const newDoc = await db
                   .collection(tutorialsCollection)
                   .add(tutorial);
+                functions.logger.log("addTutorial:", {
+                  message: "tutorial added",
+                  docId: newDoc.id,
+                  tutorialId: tutorialId,
+                  imageName: newImageName,
+                  videoName: newVideoName,
+                });
                 res.status(200).send({
                   message: "tutorial added",
                   docId: newDoc.id,
@@ -144,6 +155,7 @@ export let addTutorial = async (
       blobWriter.end(file.content);
     });
   } catch (error) {
+    functions.logger.log("addTutorial:", error);
     res.status(400).json({ message: "Something went wrong!!" });
   }
 };
@@ -214,7 +226,9 @@ export let updateTutorial = async (
           contentType: filesObj.image.contentType,
         },
       });
-      blobWriter.on("error", (err) => next(err));
+      blobWriter.on("error", (err) =>
+        functions.logger.log("updateTutorial(error in file uploading):", err)
+      );
       blobWriter.on("finish", async () => {
         const imageUrl = `https://firebasestorage.googleapis.com/v0/b/${
           bucket.name
@@ -250,11 +264,15 @@ export let updateTutorial = async (
                 data: newData,
               })
               .then(() => {
+                functions.logger.log("updateTutorial:", {
+                  message: "Tutorial update",
+                });
                 res.status(200).json({ message: "Tutorial update" });
               });
           })
           .catch((err) => {
             console.log("error in if", err);
+            functions.logger.log("updateTutorial:", { error: "err" });
             res.status(400).json({ message: "Something went wrong!!" });
           });
       });
@@ -274,7 +292,9 @@ export let updateTutorial = async (
             contentType: file.contentType,
           },
         });
-        blobWriter.on("error", (err) => next(err));
+        blobWriter.on("error", (err) =>
+          functions.logger.log("updateTutorial(error in file uploading):", err)
+        );
         blobWriter.on("finish", async () => {
           const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${
             bucket.name
@@ -327,6 +347,7 @@ export let updateTutorial = async (
               })
               .catch((err) => {
                 console.log("error in else", err);
+                functions.logger.log("updateTutorial:", { error: "err" });
                 res.status(400).json({ message: "Something went wrong!!" });
               });
           }
@@ -396,5 +417,22 @@ export let deleteTutorial = (
   } catch (error) {
     console.log(error);
     res.status(400).json({ message: "Something went wrong!!" });
+  }
+};
+
+export let getATutorialById = async (req, res, next) => {
+  try {
+    const categoryNumber = req.query.categoryNumber;
+    const tutorialId = req.query.tutorialId;
+    const docSnap = await db
+      .collection(tutorialsCollection)
+      .where("categoryNumber", "==", categoryNumber)
+      .get();
+    const docData = docSnap.docs[0].data();
+    let tutorial = docData.data.filter((tut) => tut.id === tutorialId);
+    res.status(200).send({ message: tutorial[0] });
+  } catch (error) {
+    console.log(error);
+    res.status(400).send({ message: "something went wrong!" });
   }
 };

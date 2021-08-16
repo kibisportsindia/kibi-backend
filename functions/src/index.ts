@@ -28,6 +28,7 @@ app.use("/event", require("./routes/events.routes"));
 app.use("/tutorials", require("./routes/tutorials.routes"));
 app.use("/post", require("./routes/posts.routes"));
 app.use("/room", require("./routes/chatrooms.routes"));
+app.use("/story", require("./routes/story.routes"));
 app.get("/heartbeat", (req, res) => {
   res.status(200).json(`Running`);
 });

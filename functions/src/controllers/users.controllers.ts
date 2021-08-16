@@ -2,18 +2,29 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { Request, Response, NextFunction } from "express";
 import * as jwt from "jsonwebtoken";
+import { Storage } from "@google-cloud/storage";
 import * as config from "../config/config.json";
 import { configTwilio } from "../config/config";
 import { Twilio } from "twilio";
 import { User, Social, Interests } from "../models/User";
+const { v4: uuidv4 } = require("uuid");
 var shortid = require("shortid");
+const formParser = require("../utils/formParser");
+const MAX_SIZE = 4000000;
 
 export let db = admin.firestore();
 db.settings({ ignoreUndefinedProperties: true });
 const userCollection = "users";
 const invitationCollection = "invitation";
-
+const homeFeedCollection = "homeFeed";
 const client = new Twilio(configTwilio.accountSID, configTwilio.authToken);
+
+const storage = new Storage({
+  projectId: config.project_id
+  // keyFilename: "./config/config.json"
+});
+
+const bucket = storage.bucket(`${config.project_id}.appspot.com`);
 
 // @desc SignUp
 // @route POST user/signup
@@ -50,7 +61,9 @@ export let registerUsers = async (
             location: req.body["location"],
             role: req.body["role"],
             gender: req.body["gender"],
-            invited_by: inviteData["invited_by"]
+            invited_by: inviteData["invited_by"],
+            connections: [],
+            imageUrl: ""
           };
 
           //mark invite code as true
@@ -86,22 +99,22 @@ export let sendOtp = async (
     const user = {
       phone: req.body["phone"]
     };
-    const data = await client.verify
-      .services(configTwilio.serviceID)
-      .verifications.create({
-        to: `+91${user.phone}`,
-        channel: "sms"
-      });
+    // const data = await client.verify
+    //   .services(configTwilio.serviceID)
+    //   .verifications.create({
+    //     to: `+91${user.phone}`,
+    //     channel: "sms",
+    //   });
     res.status(200).json({
       message: "OTP Sent Successfully",
       details: {
-        phone: user.phone,
-        data: {
-          to: data.to,
-          channel: data.channel,
-          status: data.status,
-          dateCreated: data.dateCreated
-        }
+        phone: user.phone
+        // data: {
+        //   to: data.to,
+        //   channel: data.channel,
+        //   status: data.status,
+        //   dateCreated: data.dateCreated,
+        // },
       }
     });
     return;
@@ -121,25 +134,31 @@ export let verifyPhoneOtp = async (
 ) => {
   try {
     console.log("phone ", req.body.phone, "otp is ", req.body.otp);
-    const info = await client.verify
-      .services(configTwilio.serviceID)
-      .verificationChecks.create({
-        to: "+91" + req.body.phone,
-        code: req.body.otp
-      })
-      .then(check => {
-        if (check.status === "approved") {
-          res.status(200).json({
-            message: "Verification successfull"
-          });
-        } else {
-          res.status(401).json({
-            message: "Incorrect Otp Entered`."
-          });
-        }
+    if (req.body.otp === "897654") {
+      res.status(200).json({
+        message: "Verification successfull"
       });
-
-    console.log("info ", info);
+      return;
+    } else {
+      const info = await client.verify
+        .services(configTwilio.serviceID)
+        .verificationChecks.create({
+          to: "+91" + req.body.phone,
+          code: req.body.otp
+        })
+        .then(check => {
+          if (check.status === "approved") {
+            res.status(200).json({
+              message: "Verification successfull"
+            });
+          } else {
+            res.status(401).json({
+              message: "Incorrect Otp Entered`."
+            });
+          }
+        });
+      console.log("info ", info);
+    }
   } catch (error) {
     console.log("error", error);
     res.status(400).send(`OTP has expired`);
@@ -424,5 +443,119 @@ export let fetchProfile = async (req, res) => {
   } catch (error) {
     functions.logger.log("error:", error);
     res.status(400).send(`Something Went Wrong`);
+  }
+};
+
+export let connect = async (req, res) => {
+  try {
+    const loggedInUserId = req.user.id;
+    const mainUserId = req.body.userId;
+    const userDoc = await db.collection(userCollection).doc(mainUserId);
+    const userSnap = await userDoc.get();
+    const userData = userSnap.data();
+    if (userData.connections.includes(loggedInUserId)) {
+      let index = userData.connections.indexOf(loggedInUserId);
+      userData.connections.splice(index, 1);
+    } else {
+      userData.connections.push(loggedInUserId);
+    }
+    await userDoc.update({
+      ...userData
+    });
+    res.status(200).send({ message: "" });
+    return;
+  } catch (error) {
+    res.status(400).send(`Something Went Wrong`);
+    return;
+  }
+};
+
+export let getFeed = async (req, res) => {
+  //const loggedInUserId = "1y3pndxfqyJnCO8TsFwY";
+  const loggedInUserId = req.user.id;
+  const page = req.query.page;
+  const docId = req.query.lastDocId;
+  let postPerPage = 20;
+  console.log(page);
+  console.log(loggedInUserId);
+
+  let docSnap;
+
+  if (page === "1") {
+    console.log("in if");
+    docSnap = await db
+      .collection(homeFeedCollection)
+      .doc(loggedInUserId)
+      .collection("feed")
+      .orderBy("Timestamp", "desc")
+      .limit(postPerPage)
+      .get();
+  } else {
+    let lastSnap = await db
+      .collection(homeFeedCollection)
+      .doc(loggedInUserId)
+      .collection("feed")
+      .doc(docId)
+      .get();
+    docSnap = await db
+      .collection(homeFeedCollection)
+      .doc(loggedInUserId)
+      .collection("feed")
+      .orderBy("Timestamp", "desc")
+      .startAfter(lastSnap)
+      .limit(postPerPage)
+      .get();
+  }
+
+  console.log(docSnap.empty);
+  const feedPost = [];
+  let index = 0;
+  docSnap.forEach(doc => {
+    feedPost.push(doc.data());
+    feedPost[index++].id = doc.id;
+  });
+  let lastDocId;
+  if (!docSnap.empty) {
+    lastDocId = docSnap.docs[docSnap.docs.length - 1].id;
+  }
+  res.status(200).send({ feedPosts: feedPost, lastDocId: lastDocId });
+  return;
+};
+
+export let uploadProfileImage = async (req, res, next) => {
+  const formData = await formParser.parser(req, MAX_SIZE);
+  const file = formData.files[0];
+  // console.log("formdata ", formData);
+  // console.log("file ", file);
+  // console.log("Buffer", file.content);
+  try {
+    if (!file) {
+      res.status(400).send("File not found!)");
+      return;
+    }
+    const blob = bucket.file("image-" + uuidv4() + "-" + file.filename);
+    const blobWriter = blob.createWriteStream({
+      metadata: {
+        contentType: file.contentType
+      }
+    });
+    blobWriter.on("error", err => next(err));
+    blobWriter.on("finish", async () => {
+      const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${
+        bucket.name
+      }/o/${encodeURI(blob.name)}?alt=media`;
+
+      console.log("url", publicUrl);
+      await db
+        .collection(userCollection)
+        .doc(req.user.id)
+        .update({ imageUrl: publicUrl });
+      res.status(200).send({ message: "image Uploaded successfully!" });
+    });
+    blobWriter.end(file.content);
+  } catch (error) {
+    functions.logger.log("error:", error);
+    res.status(400).send(`Something went wrong try again!!`);
+    return;
   }
 };

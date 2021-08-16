@@ -7,6 +7,8 @@ export interface User {
   role: Role;
   gender: Gender;
   invited_by;
+  connections: Array<String>;
+  imageUrl: String;
 }
 
 enum Role {
@@ -15,12 +17,12 @@ enum Role {
   Coach = "Coach",
   Sports_Academy = "Sports Academy",
   Brand_Company = "Brand/Company",
-  Sports_Staff = "Sports Staff"
+  Sports_Staff = "Sports Staff",
 }
 
 enum Gender {
   Male = "Male",
-  Female = "Female"
+  Female = "Female",
 }
 
 // export interface Phone {
