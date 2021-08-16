@@ -8,5 +8,7 @@ router.route("/initiate").post(ChatRoomController.initiateChatRoom);
 router
   .route("/:roomId/message")
   .post(authUser, ChatRoomController.postMessageInChatRoom);
+router.route("/:roomId").get(ChatRoomController.getConversationByRoomId);
+router.route('/:roomId/mark-read').put(ChatRoomController.markConversationReadByRoomId);
 
 module.exports = router;

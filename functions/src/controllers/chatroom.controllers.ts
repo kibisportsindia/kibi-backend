@@ -105,20 +105,23 @@ export let getConversationByRoomId = async (
 ) => {
   try {
     const { roomId } = req.params;
+    const result = [];
     await db
       .collection(chatRoomCollection)
-      .where("id", "==", roomId)
+      .doc(roomId)
       .get()
       .then(async (room) => {
-        if (room.empty) {
+        if (!room.exists) {
           res.status(404).json(`no room found with this ID, ${roomId}`);
         }
         const conversation = await db
           .collection(chatMessageCollection)
           .where("chatRoomId", "==", roomId)
           .get();
-
-        res.status(200).json({ success: true, data: conversation });
+        conversation.forEach((snapshot) => {
+          result.push(snapshot.data());
+        });
+        res.status(200).json({ success: true, data: result });
         return;
       });
   } catch (error) {
@@ -132,7 +135,7 @@ export let getConversationByRoomId = async (
 };
 
 // @desc Mark Conversation Read By RoomId
-// @route PUT :roomId/mark-read
+// @route PUT room/:roomId/mark-read
 // @access Private
 export let markConversationReadByRoomId = async (
   req: Request,
@@ -143,17 +146,29 @@ export let markConversationReadByRoomId = async (
     const { roomId } = req.params;
     await db
       .collection(chatRoomCollection)
-      .where("id", "==", roomId)
+      .doc(roomId)
       .get()
       .then(async (room) => {
-        if (room.empty) {
-          res.status(404).json(`no room found with this ID, ${roomId}`);
+        if (!room.exists) {
+          res.status(404).json({
+            success: false,
+            data: `no room found with this ID, ${roomId}`,
+          });
+          return;
         }
-        //  This function not completed yet
         const token = req.header("auth-user");
         const decoded = jwt.verify(token, config.TOKEN_SECRET);
         let id = decoded["id"];
-        res.status(200).json({ success: true, data: id });
+        const filter = await db
+          .collection(chatMessageCollection)
+          .where("chatRoomId", "==", roomId)
+          .get();
+        const filterId = filter.docs[0].id;
+        const data = await db
+          .collection(chatMessageCollection)
+          .doc(filterId)
+          .update({ readByRecipient: id });
+        res.status(200).json({ success: true, data: data });
         return;
       });
   } catch (error) {

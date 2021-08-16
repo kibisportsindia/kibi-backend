@@ -8,5 +8,6 @@ export interface ChatMessage {
   chatRoomId: String;
   message: String;
   postedByUser: String;
+  readByRecipient?: String;
   createdAt: Date;
 }
