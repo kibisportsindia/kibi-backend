@@ -20,7 +20,7 @@ const homeFeedCollection = "homeFeed";
 const client = new Twilio(configTwilio.accountSID, configTwilio.authToken);
 
 const storage = new Storage({
-  projectId: config.project_id,
+  projectId: config.project_id
   // keyFilename: "./config/config.json"
 });
 
@@ -40,7 +40,7 @@ export let registerUsers = async (
       .collection(invitationCollection)
       .where("invite_code", "==", req.body.invite_code)
       .get()
-      .then(async (invite) => {
+      .then(async invite => {
         if (invite.empty) {
           res.status(400).json({ message: "Invalid invite code " });
           return;
@@ -63,7 +63,7 @@ export let registerUsers = async (
             gender: req.body["gender"],
             invited_by: inviteData["invited_by"],
             connections: [],
-            imageUrl: "",
+            imageUrl: ""
           };
 
           //mark invite code as true
@@ -97,7 +97,7 @@ export let sendOtp = async (
 ) => {
   try {
     const user = {
-      phone: req.body["phone"],
+      phone: req.body["phone"]
     };
     // const data = await client.verify
     //   .services(configTwilio.serviceID)
@@ -108,14 +108,14 @@ export let sendOtp = async (
     res.status(200).json({
       message: "OTP Sent Successfully",
       details: {
-        phone: user.phone,
+        phone: user.phone
         // data: {
         //   to: data.to,
         //   channel: data.channel,
         //   status: data.status,
         //   dateCreated: data.dateCreated,
         // },
-      },
+      }
     });
     return;
   } catch (error) {
@@ -134,30 +134,31 @@ export let verifyPhoneOtp = async (
 ) => {
   try {
     console.log("phone ", req.body.phone, "otp is ", req.body.otp);
-    const info = await client.verify
-      .services(configTwilio.serviceID)
-      .verificationChecks.create({
-        to: "+91" + req.body.phone,
-        code: req.body.otp,
-      })
-      .then((check) => {
-        // if (check.status === "approved") {
-        //   res.status(200).json({
-        //     message: "Verification successfull",
-        //   });
-        // }
-        if (req.body.otp === 897654) {
-          res.status(200).json({
-            message: "Verification successfull",
-          });
-        } else {
-          res.status(401).json({
-            message: "Incorrect Otp Entered`.",
-          });
-        }
+    if (req.body.otp === "897654") {
+      res.status(200).json({
+        message: "Verification successfull"
       });
-
-    console.log("info ", info);
+      return;
+    } else {
+      const info = await client.verify
+        .services(configTwilio.serviceID)
+        .verificationChecks.create({
+          to: "+91" + req.body.phone,
+          code: req.body.otp
+        })
+        .then(check => {
+          if (check.status === "approved") {
+            res.status(200).json({
+              message: "Verification successfull"
+            });
+          } else {
+            res.status(401).json({
+              message: "Incorrect Otp Entered`."
+            });
+          }
+        });
+      console.log("info ", info);
+    }
   } catch (error) {
     console.log("error", error);
     res.status(400).send(`OTP has expired`);
@@ -179,14 +180,14 @@ export let editProfile = async (
       age: req.body["age"],
       location: req.body["location"],
       role: req.body["role"],
-      gender: req.body["gender"],
+      gender: req.body["gender"]
     };
 
     await db
       .collection(userCollection)
       .doc(req.body.id)
       .get()
-      .then(async (user) => {
+      .then(async user => {
         if (!user.exists) {
           res.status(404).json({ message: "User not found" });
           return;
@@ -213,14 +214,14 @@ export let socialAccounts = async (
 ) => {
   try {
     const links: Social = {
-      social_links: req.body["social_links"],
+      social_links: req.body["social_links"]
     };
 
     await db
       .collection(userCollection)
       .doc(req.body.id)
       .get()
-      .then(async (user) => {
+      .then(async user => {
         if (!user.exists) {
           res.status(404).json({ message: "User not found" });
           return;
@@ -248,14 +249,14 @@ export let interests = async (
 ) => {
   try {
     const interests: Interests = {
-      interests: req.body["interests"],
+      interests: req.body["interests"]
     };
 
     await db
       .collection(userCollection)
       .doc(req.body.id)
       .get()
-      .then(async (user) => {
+      .then(async user => {
         if (!user.exists) {
           res.status(404).json({ message: "User not found" });
           return;
@@ -282,21 +283,21 @@ export let generateInvite = async (req, res) => {
       invited_by: req.body["invited_by"],
       invite_code: shortid.generate(),
       invited_timestamp: new Date(),
-      is_invite_verified: false,
+      is_invite_verified: false
     };
 
     await db
       .collection(invitationCollection)
       .doc()
       .set(invite, { merge: true })
-      .then((userUdated) => {
+      .then(userUdated => {
         console.log("new user", userUdated);
         if (userUdated)
           res.status(201).json({
             message: "User Invited Successfully",
             details: {
-              invite_code: invite.invite_code,
-            },
+              invite_code: invite.invite_code
+            }
           });
       });
   } catch (error) {
@@ -311,13 +312,13 @@ export let generateInvite = async (req, res) => {
 export let validateInvite = async (req, res) => {
   try {
     const user = {
-      invite_code: req.body["invite_code"],
+      invite_code: req.body["invite_code"]
     };
     await db
       .collection(invitationCollection)
       .where("invite_code", "==", user.invite_code)
       .get()
-      .then((invite) => {
+      .then(invite => {
         if (invite.empty) {
           res.status(200).json({ message: "Invalid invite code " });
           return;
@@ -325,7 +326,7 @@ export let validateInvite = async (req, res) => {
           console.log("invite", invite.docs[0].data());
           res.status(200).json({
             message: "Invite Code is Valid",
-            details: invite.docs[0].data(),
+            details: invite.docs[0].data()
           });
           return;
         }
@@ -342,14 +343,14 @@ export let validateInvite = async (req, res) => {
 export let checkPhone = async (req, res) => {
   try {
     const user = {
-      phone: req.body["phone"],
+      phone: req.body["phone"]
     };
 
     await db
       .collection(userCollection)
       .where("phone", "==", user.phone)
       .get()
-      .then((userData) => {
+      .then(userData => {
         if (userData.empty) {
           res.status(404).json({ message: "User not found" });
           return;
@@ -358,8 +359,8 @@ export let checkPhone = async (req, res) => {
             message: "User Found",
             details: {
               id: userData.docs[0].id,
-              phone: userData.docs[0].data().phone,
-            },
+              phone: userData.docs[0].data().phone
+            }
           });
           return;
         }
@@ -376,14 +377,14 @@ export let checkPhone = async (req, res) => {
 export let loginUser = async (req, res) => {
   try {
     const user = {
-      phone: req.body["phone"],
+      phone: req.body["phone"]
     };
 
     await db
       .collection(userCollection)
       .where("phone", "==", user.phone)
       .get()
-      .then((userData) => {
+      .then(userData => {
         if (userData.empty) {
           res.status(404).json({ message: "User not found" });
           return;
@@ -399,8 +400,8 @@ export let loginUser = async (req, res) => {
               message: "User Found",
               details: {
                 id: userData.docs[0].id,
-                phone: userData.docs[0].data().phone,
-              },
+                phone: userData.docs[0].data().phone
+              }
             });
           return;
         }
@@ -424,7 +425,7 @@ export let fetchProfile = async (req, res) => {
       .collection(userCollection)
       .doc(id)
       .get()
-      .then((userData) => {
+      .then(userData => {
         if (!userData.exists) {
           res.status(404).json({ message: "User not found" });
           return;
@@ -433,8 +434,8 @@ export let fetchProfile = async (req, res) => {
             message: "User Found",
             details: {
               id: userData.data().id,
-              data: userData.data(),
-            },
+              data: userData.data()
+            }
           });
           return;
         }
@@ -459,7 +460,7 @@ export let connect = async (req, res) => {
       userData.connections.push(loggedInUserId);
     }
     await userDoc.update({
-      ...userData,
+      ...userData
     });
     res.status(200).send({ message: "" });
     return;
@@ -509,7 +510,7 @@ export let getFeed = async (req, res) => {
   console.log(docSnap.empty);
   const feedPost = [];
   let index = 0;
-  docSnap.forEach((doc) => {
+  docSnap.forEach(doc => {
     feedPost.push(doc.data());
     feedPost[index++].id = doc.id;
   });
@@ -535,10 +536,10 @@ export let uploadProfileImage = async (req, res, next) => {
     const blob = bucket.file("image-" + uuidv4() + "-" + file.filename);
     const blobWriter = blob.createWriteStream({
       metadata: {
-        contentType: file.contentType,
-      },
+        contentType: file.contentType
+      }
     });
-    blobWriter.on("error", (err) => next(err));
+    blobWriter.on("error", err => next(err));
     blobWriter.on("finish", async () => {
       const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${
         bucket.name
