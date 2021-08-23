@@ -9,6 +9,8 @@ export interface User {
   invited_by;
   connections: Array<String>;
   imageUrl: String;
+  status1:String;
+  status2:String;
 }
 
 enum Role {
