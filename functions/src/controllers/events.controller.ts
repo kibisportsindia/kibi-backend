@@ -6,7 +6,7 @@ import { Event } from "../models/Events";
 import { Storage } from "@google-cloud/storage";
 const formParser = require("../utils/formParser");
 const MAX_SIZE = 4000000; // 4MB
-const { v4: uuidv4 } = require("uuid");
+//const { v4: uuidv4 } = require("uuid");
 
 export let db = admin.firestore();
 const eventCollection = "events";
@@ -23,55 +23,29 @@ export const addEvent = async (
   res: Response,
   next: NextFunction
 ) => {
-  const formData = await formParser.parser(req, MAX_SIZE);
-  const file = formData.files[0];
-  console.log("ADD EVENT(req body)", formData);
-  // console.log("formdata ", formData);
-  // console.log("file ", file);
-  // console.log("Buffer", file.content);
   try {
-    if (!file) {
-      res.status(400).send("File not found!)");
-      return;
-    }
-    const blob = bucket.file("image-" + uuidv4() + "-" + file.filename);
-    const blobWriter = blob.createWriteStream({
-      metadata: {
-        contentType: file.contentType,
-      },
+    //console.log("url", publicUrl);
+    const event: Event = {
+      event_name: req.body["event_name"],
+      date: req.body["date"],
+      place: req.body["place"],
+      sports: req.body["sports"],
+      age_category: req.body["age_category"],
+      image: req.body["imageUrl"],
+      imageName: req.body["imageName"],
+      how_to_participate: req.body["how_to_participate"],
+      charges: req.body["charges"],
+      benefits: req.body["benefits"],
+      phone: req.body["phone"],
+      type: req.body["type"],
+    };
+    console.log("event is ", event);
+    const newDoc = await db.collection(eventCollection).add(event);
+    functions.logger.log("addEvent:", {
+      message: "Event added Successfully!",
+      id: newDoc.id,
     });
-    blobWriter.on("error", (err) => {
-      functions.logger.log("addEvent(Error in File Uploading)", err);
-      res.status(400).json({ message: "Error in File Uploading" });
-    });
-    blobWriter.on("finish", async () => {
-      const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${
-        bucket.name
-      }/o/${encodeURI(blob.name)}?alt=media`;
-
-      console.log("url", publicUrl);
-      const event: Event = {
-        event_name: formData["event_name"],
-        date: formData["date"],
-        place: formData["place"],
-        sports: formData["sports"],
-        age_category: formData["age_category"],
-        image: publicUrl,
-        how_to_participate: formData["how_to_participate"],
-        charges: formData["charges"],
-        benefits: formData["benefits"],
-        phone: formData["phone"],
-        type: formData["type"],
-      };
-      console.log("event is ", event);
-      const newDoc = await db.collection(eventCollection).add(event);
-      functions.logger.log("addEvent:", {
-        message: "Event added Successfully!",
-        id: newDoc.id,
-      });
-      res.status(200).send({ message: "Event added", id: newDoc.id });
-    });
-    blobWriter.end(file.content);
+    res.status(200).send({ message: "Event added", id: newDoc.id });
   } catch (error) {
     functions.logger.log("addEvent:", error);
     res.status(400).send(`Something went wrong try again!!`);
@@ -119,75 +93,57 @@ export const updateEvent = async (
   res: Response,
   next: NextFunction
 ) => {
-  const formData = await formParser.parser(req, MAX_SIZE);
-  const file = formData.files[0];
   try {
-    if (!file) {
-      res.status(400).json({ message: "Error, file not found!" });
-      return;
-    }
-    let id = formData["id"];
+    let id = req.body["id"];
     console.log(id);
     db.collection(eventCollection)
       .doc(id)
       .get()
       .then(async (doc) => {
-        let imageUrl = doc.data().image;
-        const fileName = imageUrl.split("o/")[1].split("?")[0];
-        console.log("fileName", fileName);
-        const img = bucket.file(fileName);
-        img.delete().then((result) => {
-          const blob = bucket.file(file.filename);
-          const blobWriter = blob.createWriteStream({
-            metadata: {
-              contentType: file.contentType,
-            },
+        //let imageUrl = doc.data().image;
+
+        console.log(id);
+        db.collection(eventCollection)
+          .doc(id)
+          .update({
+            event_name: req.body["event_name"],
+            date: req.body["date"],
+            place: req.body["place"],
+            sports: req.body["sports"],
+            age_category: req.body["age_category"],
+            image: req.body["imageUrl"],
+            how_to_participate: req.body["how_to_participate"],
+            charges: req.body["charges"],
+            benefits: req.body["benefits"],
+            phone: req.body["phone"],
+            type: req.body["type"],
+            imageName: req.body["imageName"],
+          })
+          .then(() => {
+            functions.logger.log("updateEvent:", {
+              messgae: "Event Update Successfully",
+            });
+            res.status(200).json({ message: "Event Update Successfully" });
+          })
+          .catch((err) => {
+            console.log(1, err);
+            functions.logger.log("updateEvent:", err);
+            res
+              .status(400)
+              .json({ messgae: "Something Went Wrong! " + err.message });
           });
-          blobWriter.on("error", (err) => next(err));
-          blobWriter.on("finish", async () => {
-            const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${
-              bucket.name
-            }/o/${encodeURI(blob.name)}?alt=media`;
-            console.log(id);
-            db.collection(eventCollection)
-              .doc(id)
-              .update({
-                event_name: formData["event_name"],
-                date: formData["date"],
-                place: formData["place"],
-                sports: formData["sports"],
-                age_category: formData["age_category"],
-                image: publicUrl,
-                how_to_participate: formData["how_to_participate"],
-                charges: formData["charges"],
-                benefits: formData["benefits"],
-                phone: formData["phone"],
-                type: formData["type"],
-              })
-              .then(() => {
-                functions.logger.log("updateEvent:", {
-                  messgae: "Event Update Successfully",
-                });
-                res.status(200).json({ messgae: "Event Update Successfully" });
-              })
-              .catch((err) => {
-                console.log(1, err);
-                functions.logger.log("updateEvent:", err);
-                res.status(400).json({ messgae: "Something Went Wrong!" });
-              });
-          });
-          blobWriter.end(file.content);
-        });
       })
       .catch((err) => {
         console.log(1, err);
         functions.logger.log("updateEvent:", err);
-        res.status(400).json({ message: "Something went wrong!!" });
+        res
+          .status(400)
+          .json({ message: "Something went wrong!! " + err.message });
       });
   } catch (error) {
     console.log(1, error);
     functions.logger.log("updateEvent:", error);
-    res.status(400).send(`Something went wrong!!`);
+    res.status(400).send(`Something went wrong!! ${error.message}`);
   }
 };
 
@@ -202,8 +158,8 @@ export const deleteEvent = async (
       .doc(id)
       .get()
       .then(async (doc) => {
-        let imageUrl = doc.data().image;
-        const fileName = imageUrl.split("o/")[1].split("?")[0];
+        //let imageUrl = doc.data().image;
+        const fileName = doc.data().imageName;
         console.log("fileName", fileName);
         await db.collection(eventCollection).doc(id).delete();
         const file = bucket.file(fileName);

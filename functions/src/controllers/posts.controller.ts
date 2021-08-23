@@ -2,11 +2,11 @@ import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
 import * as config from "../config/config.json";
 import { Storage } from "@google-cloud/storage";
-const formParser = require("../utils/formParser");
 import { Post } from "../models/Post";
-const { v4: uuidv4 } = require("uuid");
-const MAX_SIZE = 4000000; // 4MB
-const axios = require("axios");
+//const formParser = require("../utils/formParser");
+//const { v4: uuidv4 } = require("uuid");
+//const MAX_SIZE = 4000000; // 4MB
+//const axios = require("axios");
 // const ShortUniqueId = require("short-unique-id");
 
 // const suid = new ShortUniqueId();
@@ -24,91 +24,59 @@ const storage = new Storage({
 
 const bucket = storage.bucket(`${config.project_id}.appspot.com`);
 
-let pushNotifications = async (notificationBody) => {
-    let axiosConfig = {
-      headers:{
-        'Authorization':`key=${config.fcmServerKey}`,
-        'Content-Type':'application/json'
-      }
-    }
-    let url = "https://fcm.googleapis.com/fcm/send";
-    let data = notificationBody;
-    try{
-      await axios.post(url,data,axiosConfig);
-    }catch(error){
-      console.log(error)
-    }
-}
+// let pushNotifications = async (notificationBody) => {
+//   let axiosConfig = {
+//     headers: {
+//       Authorization: `key=${config.fcmServerKey}`,
+//       "Content-Type": "application/json",
+//     },
+//   };
+//   let url = "https://fcm.googleapis.com/fcm/send";
+//   let data = notificationBody;
+//   try {
+//     await axios.post(url, data, axiosConfig);
+//   } catch (error) {
+//     console.log(error);
+//   }
+// };
 
 export let createPost = async (req, res, next) => {
   try {
-    const formData = await formParser.parser(req, MAX_SIZE);
-    const files = formData.files;
-    console.log("CREATE POST ", formData);
-    const noOfImages = files.length;
-    const imageUrls = [];
+    let post: Post = {
+      user_id: req.user.id,
+      imageUrl: req.body.imageUrls,
+      likers: [],
+      likesCount: 0,
+      description: req.body["description"],
+      Timestamp: new Date(),
+    };
+    const newDoc = await db.collection(postCollection).add(post);
+    const newId = newDoc.id;
+    res
+      .status(200)
+      .json({ message: "Post created successfully!", id: newDoc.id });
 
-    if (!files.length) {
-      return res.status(400).json({ message: "File Not Found" });
-    }
-    formData.files.forEach((file) => {
-      file.filename = uuidv4() + "-" + file.filename;
-      // console.log(file)
-      const blob = bucket.file(file.filename);
-      const blobWriter = blob.createWriteStream({
-        metadata: {
-          contentType: file.contentType,
-        },
+    //For homeFeed
+    const userDoc = await db.collection("users").doc(req.user.id).get();
+    const userConnectionsId = userDoc.data().connections;
+    await db
+      .collection(homeFeedCollection)
+      .doc(req.user.id)
+      .collection("feed")
+      .doc(newId)
+      .set({
+        ...post,
       });
-      blobWriter.on("error", (err) => {
-        res.status(400).json({ message: "Error in File Uploading" });
-        functions.logger.log("createPost(Error in File Uploading)", err);
-      });
-      blobWriter.on("finish", async () => {
-        const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${
-          bucket.name
-        }/o/${encodeURI(blob.name)}?alt=media`;
-        imageUrls.push(publicUrl);
-        if (imageUrls.length === noOfImages) {
-          let post: Post = {
-            user_id: req.user.id,
-            imageUrl: imageUrls,
-            likers: [],
-            likesCount: 0,
-            description: formData["description"],
-            Timestamp: new Date(),
-          };
-          const newDoc = await db.collection(postCollection).add(post);
-          const newId = newDoc.id;
-          res
-            .status(200)
-            .json({ message: "Post created successfully!", id: newDoc.id });
-
-          //For homeFeed
-          const userDoc = await db.collection("users").doc(req.user.id).get();
-          const userConnectionsId = userDoc.data().connections;
-          await db
-            .collection(homeFeedCollection)
-            .doc(req.user.id)
-            .collection("feed")
-            .doc(newId)
-            .set({
-              ...post,
-            });
-          userConnectionsId.forEach((id) => {
-            db.collection(homeFeedCollection)
-              .doc(id)
-              .collection("feed")
-              .doc(newId)
-              .set({
-                ...post,
-              });
-          });
-          return;
-        }
-      });
-      blobWriter.end(file.content);
+    userConnectionsId.forEach((id) => {
+      db.collection(homeFeedCollection)
+        .doc(id)
+        .collection("feed")
+        .doc(newId)
+        .set({
+          ...post,
+        });
     });
+    return;
   } catch (error) {
     console.log(error);
     functions.logger.log("createPost(Error)", error);
@@ -148,129 +116,93 @@ export let getPosts = async (req, res, next) => {
 
 export let updatePost = async (req, res, next) => {
   try {
-    const formData = await formParser.parser(req, MAX_SIZE);
-    const files = formData.files;
-    let imageUrls = [];
-    if (!files.length) {
-      res.status(400).json({ message: "File Not Found!" });
-      return;
-    }
-
     db.collection(postCollection)
-      .doc(formData["post_id"])
+      .doc(req.body["post_id"])
       .get()
       .then((oldDoc) => {
         if (!oldDoc.exists) {
           res.status(400).send({ message: "POST not found!" });
           return;
         }
-        let oldImageUrls = oldDoc.data().imageUrl;
-        files.forEach((file) => {
-          file.filename = uuidv4() + "-" + file.filename;
-          const blob = bucket.file(file.filename);
-          const blobWriter = blob.createWriteStream({
-            metadata: {
-              contentType: file.contentType,
-            },
-          });
-          blobWriter.on("error", (err) => {
-            res.status(400).json({ message: "Error in File Uploading" });
-            functions.logger.log("updatePost(Error in File Uploading)", err);
-          });
 
-          blobWriter.on("finish", async () => {
-            const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${
-              bucket.name
-            }/o/${encodeURI(blob.name)}?alt=media`;
-            imageUrls.push(publicUrl);
-            if (imageUrls.length === files.length) {
-              let post: Post = {
-                user_id: req.user.id,
-                imageUrl: imageUrls,
-                likers: [],
-                likesCount: 0,
-                description: formData["description"],
-                Timestamp: new Date(),
-              };
-              db.collection(postCollection)
-                .doc(formData["post_id"])
-                .update(post)
-                .then(async () => {
-                  res
-                    .status(200)
-                    .json({ message: "Post Update successfully!" });
-                  oldImageUrls.forEach((url) => {
-                    let imageName = url.split("o/")[1].split("?")[0];
-                    console.log(imageName);
-                    const img = bucket.file(imageName);
-                    img.delete();
-                  });
+        let post: Post = {
+          user_id: req.user.id,
+          imageUrl: req.body["imageUrls"],
+          likers: [],
+          likesCount: 0,
+          description: req.body["description"],
+          Timestamp: new Date(),
+        };
+        db.collection(postCollection)
+          .doc(req.body["post_id"])
+          .update(post)
+          .then(async () => {
+            res.status(200).json({ message: "Post Update successfully!" });
+            // oldImageUrls.forEach((url) => {
+            //   let imageName = url.split("o/")[1].split("?")[0];
+            //   console.log(imageName);
+            //   const img = bucket.file(imageName);
+            //   img.delete();
+            // });
 
-                  //feed update
+            //feed update
 
+            const userDoc = await db.collection("users").doc(req.user.id).get();
+            const userConnectionsId = userDoc.data().connections;
+            await db
+              .collection(homeFeedCollection)
+              .doc(req.user.id)
+              .collection("feed")
+              .doc(req.body["post_id"])
+              .update({
+                ...post,
+              });
+            userConnectionsId.forEach(async (id) => {
+              await db
+                .collection(homeFeedCollection)
+                .doc(id)
+                .collection("feed")
+                .doc(req.body["post_id"])
+                .update({
+                  ...post,
+                });
+
+              let sharePost = await db
+                .collection(SharedPostCollection)
+                .doc(id)
+                .collection("posts")
+                .where("postId", "==", req.body["post_id"])
+                .get();
+
+              if (!sharePost.empty) {
+                sharePost.forEach(async (doc) => {
                   const userDoc = await db
-                    .collection("users")
-                    .doc(req.user.id)
+                    .collection(userCollection)
+                    .doc(id)
                     .get();
-                  const userConnectionsId = userDoc.data().connections;
+                  const userData = userDoc.data();
+
                   await db
                     .collection(homeFeedCollection)
-                    .doc(req.user.id)
+                    .doc(id)
                     .collection("feed")
-                    .doc(formData["post_id"])
-                    .update({
-                      post,
-                    });
-                  userConnectionsId.forEach(async (id) => {
+                    .doc(doc.id)
+                    .update({ ...post });
+                  userData.connections.forEach(async (id) => {
+                    console.log(id);
                     await db
                       .collection(homeFeedCollection)
                       .doc(id)
                       .collection("feed")
-                      .doc(formData["post_id"])
-                      .update({
-                        post,
-                      });
-
-                    let sharePost = await db
-                      .collection(SharedPostCollection)
-                      .doc(id)
-                      .collection("posts")
-                      .where("postId", "==", formData["post_id"])
-                      .get();
-
-                    if (!sharePost.empty) {
-                      sharePost.forEach(async (doc) => {
-                        const userDoc = await db
-                          .collection(userCollection)
-                          .doc(id)
-                          .get();
-                        const userData = userDoc.data();
-
-                        await db
-                          .collection(homeFeedCollection)
-                          .doc(id)
-                          .collection("feed")
-                          .doc(doc.id)
-                          .update({ ...post });
-                        userData.connections.forEach(async (id) => {
-                          console.log(id);
-                          await db
-                            .collection(homeFeedCollection)
-                            .doc(id)
-                            .collection("feed")
-                            .doc(doc.id)
-                            .update({ ...post });
-                        });
-                        await doc.ref.update({ ...post });
-                      });
-                    }
+                      .doc(doc.id)
+                      .update({ ...post });
                   });
-                  return;
+                  await doc.ref.update({ ...post });
                 });
-            }
+              }
+            });
+            return;
           });
-          blobWriter.end(file.content);
-        });
       });
   } catch (error) {
     console.log(error);
@@ -280,8 +212,8 @@ export let updatePost = async (req, res, next) => {
 };
 
 export let deletePost = async (req, res, next) => {
-  const formData = await formParser.parser(req, MAX_SIZE);
-  let postId = formData["postId"];
+  //const formData = await formParser.parser(req, MAX_SIZE);
+  let postId = req.body["postId"];
   const authorId = (
     await db.collection(postCollection).doc(postId).get()
   ).data().user_id;
