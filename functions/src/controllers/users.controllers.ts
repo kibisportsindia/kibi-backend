@@ -63,7 +63,9 @@ export let registerUsers = async (
             gender: req.body["gender"],
             invited_by: inviteData["invited_by"],
             connections: [],
-            imageUrl: ""
+            imageUrl: "",
+            status1:"",
+            status2:""
           };
 
           //mark invite code as true
