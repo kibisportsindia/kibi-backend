@@ -692,18 +692,60 @@ export let deleteSharedPost = async (req, res, next) => {
   }
 };
 
-// export let test = async (req, res, next) => {
-//   try {
-//     let snap = await db
-//       .collection("feed")
-//       .doc("1y3pndxfqyJnCO8TsFwY")
-//       .collection("feed")
-//       .get();
-//     res.send({});
-//     return;
-//   } catch (error) {}
-// };
+export let sendNotificationToTokenInstances = async () => {
+  let messageBody = {
+    fcm_tokens: Array,
+    data: Array,
+    notification: { title: String, body: String },
+    customer_id: String,
+  };
+  let message = {
+    priority: "high",
+    tokens: messageBody.fcm_tokens,
+    data: messageBody.data,
+    apns: {
+      headers: {
+        "apns-priority": "10",
+      },
+      payload: {
+        aps: {
+          alert: messageBody.notification,
+          data: messageBody.data,
+        },
+      },
+    },
+    webpush: {
+      headers: {
+        Urgency: "high",
+      },
+      data: messageBody.data,
+      notification: {
+        title: messageBody.notification.title,
+        body: messageBody.notification.body,
+        requireInteraction: false,
+        // badge: "/badge-icon.png",
+        data: messageBody.data,
+      },
+    },
+  };
 
+  console.log("~~~~~~~~~~");
+  console.log(message);
+  console.log("~~~~~~~~~~");
+
+  return admin
+    .messaging()
+    .sendMulticast(message)
+    .then(async (response) => {
+      console.log("response " + response);
+      let logMessage = {
+        CUSTOMER_ID: messageBody.customer_id,
+        FIREBASE_RESPONSE: JSON.stringify(response),
+        PAYLOAD: messageBody,
+      };
+      //logger.logResponse(logMessage, context);
+    });
+};
 // export let test = async (req,res,next) => {
 //   console.log("begg")
 //   let post = {
