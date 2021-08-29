@@ -64,8 +64,8 @@ export let registerUsers = async (
             invited_by: inviteData["invited_by"],
             connections: [],
             imageUrl: "",
-            status1:"",
-            status2:""
+            status1: "",
+            status2: ""
           };
 
           //mark invite code as true
@@ -182,7 +182,10 @@ export let editProfile = async (
       age: req.body["age"],
       location: req.body["location"],
       role: req.body["role"],
-      gender: req.body["gender"]
+      gender: req.body["gender"],
+      imageUrl: req.body["imageUrl"],
+      status1: req.body["status1"],
+      status2: req.body["status2"]
     };
 
     await db
