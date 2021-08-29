@@ -1,10 +1,10 @@
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
-import * as config from "../config/config.json";
-import { Storage } from "@google-cloud/storage";
-const formParser = require("../utils/formParser");
-const MAX_SIZE = 4000000;
-const { v4: uuidv4 } = require("uuid");
+// import * as config from "../config/config.json";
+// import { Storage } from "@google-cloud/storage";
+// const formParser = require("../utils/formParser");
+// const MAX_SIZE = 4000000;
+// const { v4: uuidv4 } = require("uuid");
 const ShortUniqueId = require("short-unique-id");
 
 const suid = new ShortUniqueId();
@@ -14,112 +14,88 @@ const storiesCollection = "stories";
 const feedStoriesCollection = "feedStory";
 const feedStoriesSubCollection = "stories";
 
-const storage = new Storage({
-  projectId: config.project_id,
-});
+// const storage = new Storage({
+//   projectId: config.project_id,
+// });
 
-const bucket = storage.bucket(`${config.project_id}.appspot.com`);
+//const bucket = storage.bucket(`${config.project_id}.appspot.com`);
 
 export let addStory = async (req, res, next) => {
   try {
     console.log(req.user.id);
-    const formData = await formParser.parser(req, MAX_SIZE);
-    const files = formData["files"];
-    const numberOfFiles = files.length;
+
     let storiesData = [];
-    files.forEach((file) => {
-      file.filename = uuidv4() + "-" + file.filename;
-      // console.log(file)
-      const blob = bucket.file(file.filename);
-      const blobWriter = blob.createWriteStream({
-        metadata: {
-          contentType: file.contentType,
-        },
-      });
-      blobWriter.on("error", (err) => {
-        functions.logger.log("addStory(Error in File Uploading)", err);
-        res.status(400).json({ message: "Error in File Uploading" });
-      });
 
-      blobWriter.on("finish", async () => {
-        const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${
-          bucket.name
-        }/o/${encodeURI(blob.name)}?alt=media`;
-        storiesData.push({
-          storyId: suid(),
-          publicUrl: publicUrl,
-          Timestamp: new Date(),
-          viewers: [],
-        });
+    // console.log(file)
 
-        if (storiesData.length === numberOfFiles) {
-          try {
-            const userSnap = await db
-              .collection("users")
-              .doc(req.user.id)
-              .get();
-            const userData = userSnap.data();
-            const storySnap = await db
-              .collection(storiesCollection)
-              .where("userId", "==", req.user.id)
-              .get();
-            let doc;
-            let story;
-            if (!storySnap.empty) {
-              //console.log("storySnap", storySnap);
-              doc = storySnap.docs[0];
-              let oldStoryData = doc.data().stories;
-              let newStoryData = [...oldStoryData];
-              storiesData.forEach((story) => {
-                newStoryData.push(story);
-              });
-              let docData = doc.data();
-              story = {
-                ...docData,
-                stories: newStoryData,
-              };
-              await doc.ref.update({
-                stories: newStoryData,
-              });
-            } else {
-              story = {
-                userId: req.user.id,
-                userName: userData.name,
-                userImageUrl: userData.imageUrl,
-                stories: storiesData,
-              };
-              doc = await db.collection(storiesCollection).add({
-                ...story,
-              });
-            }
-            console.log("story!", story);
-            story.stories.forEach((story) => {
-              delete story.viewers;
-            });
-            res.status(200).send({ message: "Story uploaded Successfully!" });
-            console.log(doc.id);
-            console.log("story", story);
-            const connectionId = userData.connections;
-            console.log("connectionsId", connectionId);
-            //@send to every connections feed!
-            connectionId.forEach((id) => {
-              db.collection(feedStoriesCollection)
-                .doc(id)
-                .collection(feedStoriesSubCollection)
-                .doc(doc.id)
-                .set({ ...story });
-            });
-            return;
-          } catch (error) {
-            console.log(error);
-            functions.logger.log("addStory", error);
-            return res.status(400).json({ message: "Something Went Wrong!" });
-          }
-        }
-      });
-
-      blobWriter.end(file.content);
+    const publicUrl = req.body.url;
+    storiesData.push({
+      storyId: suid(),
+      publicUrl: publicUrl,
+      Timestamp: new Date(),
+      viewers: [],
     });
+
+    try {
+      const userSnap = await db.collection("users").doc(req.user.id).get();
+      const userData = userSnap.data();
+      console.log(userData);
+      const storySnap = await db
+        .collection(storiesCollection)
+        .where("userId", "==", req.user.id)
+        .get();
+      let doc;
+      let story;
+      if (!storySnap.empty) {
+        //console.log("storySnap", storySnap);
+        doc = storySnap.docs[0];
+        let oldStoryData = doc.data().stories;
+        let newStoryData = [...oldStoryData];
+        storiesData.forEach((story) => {
+          newStoryData.push(story);
+        });
+        let docData = doc.data();
+        story = {
+          ...docData,
+          stories: newStoryData,
+        };
+        await doc.ref.update({
+          stories: newStoryData,
+        });
+      } else {
+        story = {
+          userId: req.user.id,
+          userName: userData.name,
+          userImageUrl: userData.imageUrl,
+          stories: storiesData,
+        };
+        doc = await db.collection(storiesCollection).add({
+          ...story,
+        });
+      }
+      //console.log("story!", story);
+      story.stories.forEach((story) => {
+        delete story.viewers;
+      });
+      res.status(200).send({ message: "Story uploaded Successfully!" });
+      //console.log(doc.id);
+      //console.log("story", story);
+      const connectionId = userData.connections;
+      //console.log("connectionsId", connectionId);
+      //@send to every connections feed!
+      connectionId.forEach((id) => {
+        db.collection(feedStoriesCollection)
+          .doc(id)
+          .collection(feedStoriesSubCollection)
+          .doc(doc.id)
+          .set({ ...story });
+      });
+      return;
+    } catch (error) {
+      console.log(error);
+      functions.logger.log("addStory", error);
+      return res.status(400).json({ message: "Something Went Wrong!" });
+    }
   } catch (error) {
     console.log(error);
     functions.logger.log("addStory", error);
@@ -158,14 +134,14 @@ export let deleteStory = async (req, res, next) => {
         });
     });
 
-    let deletedStory = doc
-      .data()
-      .stories.filter((story) => story.storyId === storyId);
-    let url = deletedStory[0].publicUrl;
-    let imageName = url.split("o/")[1].split("?")[0];
-    console.log(imageName);
-    const img = bucket.file(imageName);
-    img.delete();
+    // let deletedStory = doc
+    //   .data()
+    //   .stories.filter((story) => story.storyId === storyId);
+    // let url = deletedStory[0].publicUrl;
+    // let imageName = url.split("o/")[1].split("?")[0];
+    // console.log(imageName);
+    // const img = bucket.file(imageName);
+    // img.delete();
     return;
   } catch (error) {
     console.log(error);
