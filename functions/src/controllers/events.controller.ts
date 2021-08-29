@@ -1,9 +1,9 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { Request, Response, NextFunction } from "express";
-import * as config from "../config/config.json";
+//import * as config from "../config/config.json";
 import { Event } from "../models/Events";
-import { Storage } from "@google-cloud/storage";
+//import { Storage } from "@google-cloud/storage";
 // const formParser = require("../utils/formParser");
 // const MAX_SIZE = 4000000; // 4MB
 //const { v4: uuidv4 } = require("uuid");
@@ -11,12 +11,12 @@ import { Storage } from "@google-cloud/storage";
 export let db = admin.firestore();
 const eventCollection = "events";
 
-const storage = new Storage({
-  projectId: config.project_id
-  // keyFilename: "./config/config.json"
-});
+// const storage = new Storage({
+//   projectId: config.project_id,
+//   // keyFilename: "./config/config.json"
+// });
 
-const bucket = storage.bucket(`${config.project_id}.appspot.com`);
+//const bucket = storage.bucket(`${config.project_id}.appspot.com`);
 
 export const addEvent = async (
   req: Request,
@@ -37,13 +37,13 @@ export const addEvent = async (
       charges: req.body["charges"],
       benefits: req.body["benefits"],
       phone: req.body["phone"],
-      type: req.body["type"]
+      type: req.body["type"],
     };
     console.log("event is ", event);
     const newDoc = await db.collection(eventCollection).add(event);
     functions.logger.log("addEvent:", {
       message: "Event added Successfully!",
-      id: newDoc.id
+      id: newDoc.id,
     });
     res.status(200).send({ message: "Event added", id: newDoc.id });
   } catch (error) {
@@ -66,14 +66,14 @@ export const getEvents = async (
       .collection(eventCollection)
       .where("type", "==", type)
       .get()
-      .then(eventData => {
+      .then((eventData) => {
         if (eventData.empty) {
           res.status(404).json({ message: "No Event Found" });
           return;
         }
 
         let data = [];
-        eventData.forEach(doc => {
+        eventData.forEach((doc) => {
           let id = doc.id;
           let docData = { id, ...doc.data() };
           data.push(docData);
@@ -99,7 +99,7 @@ export const updateEvent = async (
     db.collection(eventCollection)
       .doc(id)
       .get()
-      .then(async doc => {
+      .then(async (doc) => {
         //let imageUrl = doc.data().image;
 
         console.log(id);
@@ -117,15 +117,15 @@ export const updateEvent = async (
             benefits: req.body["benefits"],
             phone: req.body["phone"],
             type: req.body["type"],
-            imageName: req.body["imageName"]
+            imageName: req.body["imageName"],
           })
           .then(() => {
             functions.logger.log("updateEvent:", {
-              messgae: "Event Update Successfully"
+              messgae: "Event Update Successfully",
             });
             res.status(200).json({ message: "Event Update Successfully" });
           })
-          .catch(err => {
+          .catch((err) => {
             console.log(1, err);
             functions.logger.log("updateEvent:", err);
             res
@@ -133,7 +133,7 @@ export const updateEvent = async (
               .json({ messgae: "Something Went Wrong! " + err.message });
           });
       })
-      .catch(err => {
+      .catch((err) => {
         console.log(1, err);
         functions.logger.log("updateEvent:", err);
         res
@@ -157,24 +157,22 @@ export const deleteEvent = async (
     db.collection(eventCollection)
       .doc(id)
       .get()
-      .then(async doc => {
+      .then(async (doc) => {
         //let imageUrl = doc.data().image;
-        const fileName = doc.data().imageName;
-        console.log("fileName", fileName);
-        await db
-          .collection(eventCollection)
-          .doc(id)
-          .delete();
-        const file = bucket.file(fileName);
-        file
-          .delete()
-          .then(result => {
-            res.status(200).json({ message: "Event Deleted Successfully" });
-            console.log("FILE DELETED");
-          })
-          .catch(err => {
-            res.status(400).json({ message: "Something went wrong!!" });
-          });
+        //const fileName = doc.data().imageName;
+        //console.log("fileName", fileName);
+        await db.collection(eventCollection).doc(id).delete();
+        res.status(200).json({ message: "Event Deleted Successfully" });
+        //const file = bucket.file(fileName);
+        //file
+        // .delete()
+        // .then((result) => {
+        //  res.status(200).json({ message: "Event Deleted Successfully" });
+        //   console.log("FILE DELETED");
+        // })
+        //  .catch((err) => {
+        // res.status(400).json({ message: "Something went wrong!!" });
+        //  });
       });
   } catch (error) {
     res.status(400).json({ message: "Something went wrong!!" });

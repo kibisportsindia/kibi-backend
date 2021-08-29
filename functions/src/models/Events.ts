@@ -4,7 +4,7 @@ export interface Event {
   place: String;
   sports: String;
   age_category: String;
-  image: String;
+  image: Array<String>;
   how_to_participate: String;
   charges: String;
   benefits: String;
