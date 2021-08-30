@@ -10,5 +10,5 @@ export interface Event {
   benefits: String;
   phone: String;
   type: String;
-  //imageName: String;
+  imageName: Array<String>;
 }
