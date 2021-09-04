@@ -137,7 +137,8 @@ export let updatePost = async (req, res, next) => {
 
         let post: Post = {
           user_id: req.user.id,
-          imageUrl: req.body["imageUrls"],
+          image: req.body["imageUrl"],
+          imageName: req.body["imageName"],
           likers: [],
           likesCount: 0,
           description: req.body["description"],
