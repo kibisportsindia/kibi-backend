@@ -44,20 +44,30 @@ export let createPost = async (req, res, next) => {
   try {
     let post: Post = {
       user_id: req.user.id,
-      imageUrl: req.body.imageUrls,
+      image: req.body["imageUrl"],
+      imageName: req.body["imageName"],
       likers: [],
       likesCount: 0,
       description: req.body["description"],
-      Timestamp: new Date(),
+      Timestamp: new Date()
     };
     const newDoc = await db.collection(postCollection).add(post);
     const newId = newDoc.id;
-    res
-      .status(200)
-      .json({ message: "Post created successfully!", id: newDoc.id });
+    let postData = await db
+      .collection(postCollection)
+      .doc(newDoc.id)
+      .get();
+    res.status(200).send({
+      message: "Post created successfully!",
+      id: postData.id,
+      data: postData.data()
+    });
 
     //For homeFeed
-    const userDoc = await db.collection("users").doc(req.user.id).get();
+    const userDoc = await db
+      .collection("users")
+      .doc(req.user.id)
+      .get();
     const userConnectionsId = userDoc.data().connections;
     await db
       .collection(homeFeedCollection)
@@ -65,15 +75,15 @@ export let createPost = async (req, res, next) => {
       .collection("feed")
       .doc(newId)
       .set({
-        ...post,
+        ...post
       });
-    userConnectionsId.forEach((id) => {
+    userConnectionsId.forEach(id => {
       db.collection(homeFeedCollection)
         .doc(id)
         .collection("feed")
         .doc(newId)
         .set({
-          ...post,
+          ...post
         });
     });
     return;
@@ -94,13 +104,13 @@ export let getPosts = async (req, res, next) => {
       .collection(postCollection)
       .where("user_id", "==", user_id)
       .get()
-      .then((posts) => {
+      .then(posts => {
         if (posts.empty) {
           res.status(200).json({ message: "No Post Found" });
           return;
         }
         let data = [];
-        posts.forEach((doc) => {
+        posts.forEach(doc => {
           let id = doc.id;
           let docData = { id, ...doc.data() };
           data.push(docData);
@@ -119,7 +129,7 @@ export let updatePost = async (req, res, next) => {
     db.collection(postCollection)
       .doc(req.body["post_id"])
       .get()
-      .then((oldDoc) => {
+      .then(oldDoc => {
         if (!oldDoc.exists) {
           res.status(400).send({ message: "POST not found!" });
           return;
@@ -131,7 +141,7 @@ export let updatePost = async (req, res, next) => {
           likers: [],
           likesCount: 0,
           description: req.body["description"],
-          Timestamp: new Date(),
+          Timestamp: new Date()
         };
         db.collection(postCollection)
           .doc(req.body["post_id"])
@@ -147,7 +157,10 @@ export let updatePost = async (req, res, next) => {
 
             //feed update
 
-            const userDoc = await db.collection("users").doc(req.user.id).get();
+            const userDoc = await db
+              .collection("users")
+              .doc(req.user.id)
+              .get();
             const userConnectionsId = userDoc.data().connections;
             await db
               .collection(homeFeedCollection)
@@ -155,16 +168,16 @@ export let updatePost = async (req, res, next) => {
               .collection("feed")
               .doc(req.body["post_id"])
               .update({
-                ...post,
+                ...post
               });
-            userConnectionsId.forEach(async (id) => {
+            userConnectionsId.forEach(async id => {
               await db
                 .collection(homeFeedCollection)
                 .doc(id)
                 .collection("feed")
                 .doc(req.body["post_id"])
                 .update({
-                  ...post,
+                  ...post
                 });
 
               let sharePost = await db
@@ -175,7 +188,7 @@ export let updatePost = async (req, res, next) => {
                 .get();
 
               if (!sharePost.empty) {
-                sharePost.forEach(async (doc) => {
+                sharePost.forEach(async doc => {
                   const userDoc = await db
                     .collection(userCollection)
                     .doc(id)
@@ -188,7 +201,7 @@ export let updatePost = async (req, res, next) => {
                     .collection("feed")
                     .doc(doc.id)
                     .update({ ...post });
-                  userData.connections.forEach(async (id) => {
+                  userData.connections.forEach(async id => {
                     console.log(id);
                     await db
                       .collection(homeFeedCollection)
@@ -215,7 +228,10 @@ export let deletePost = async (req, res, next) => {
   //const formData = await formParser.parser(req, MAX_SIZE);
   let postId = req.body["postId"];
   const authorId = (
-    await db.collection(postCollection).doc(postId).get()
+    await db
+      .collection(postCollection)
+      .doc(postId)
+      .get()
   ).data().user_id;
   if (authorId === req.user.id) {
     await db
@@ -225,7 +241,10 @@ export let deletePost = async (req, res, next) => {
       .then(async () => {
         res.status(200).json({ message: "Post deleted successfully" });
 
-        const userDoc = await db.collection("users").doc(req.user.id).get();
+        const userDoc = await db
+          .collection("users")
+          .doc(req.user.id)
+          .get();
         const userConnectionsId = userDoc.data().connections;
         await db
           .collection(homeFeedCollection)
@@ -243,7 +262,7 @@ export let deletePost = async (req, res, next) => {
         //   sharePostDoc.forEach((doc) => doc.ref.delete());
         // }
         console.log("userConnectionsId", userConnectionsId);
-        userConnectionsId.forEach(async (id) => {
+        userConnectionsId.forEach(async id => {
           console.log(id);
           await db
             .collection(homeFeedCollection)
@@ -261,8 +280,11 @@ export let deletePost = async (req, res, next) => {
 
           console.log("sharePost.empty", sharePost.empty);
           if (!sharePost.empty) {
-            sharePost.forEach(async (doc) => {
-              const userDoc = await db.collection(userCollection).doc(id).get();
+            sharePost.forEach(async doc => {
+              const userDoc = await db
+                .collection(userCollection)
+                .doc(id)
+                .get();
               const userData = userDoc.data();
               doc.ref.delete();
               await db
@@ -272,7 +294,7 @@ export let deletePost = async (req, res, next) => {
                 .doc(doc.id)
                 .delete();
 
-              await userData.connections.forEach((id) => {
+              await userData.connections.forEach(id => {
                 console.log(id);
                 db.collection(homeFeedCollection)
                   .doc(id)
@@ -285,7 +307,7 @@ export let deletePost = async (req, res, next) => {
         });
         return;
       })
-      .catch((error) => {
+      .catch(error => {
         console.log(error);
         return res.status(400).json({ message: "Something went Wrong!" });
       });
@@ -304,9 +326,9 @@ export let likePost = async (req, res, next) => {
     db.collection(postCollection)
       .doc(postId)
       .get()
-      .then(async (doc) => {
+      .then(async doc => {
         let docData = doc.data();
-        const likersId = docData.likers.map((obj) => obj.userId);
+        const likersId = docData.likers.map(obj => obj.userId);
         if (likersId.includes(userId)) {
           docData.likesCount = docData.likesCount - 1;
           let userIndex = likersId.indexOf(userId);
@@ -322,14 +344,14 @@ export let likePost = async (req, res, next) => {
             userId: userId,
             userName: userData.name,
             userRole: userData.role,
-            userImageUrl: userData.imageUrl,
+            userImageUrl: userData.imageUrl
           });
         }
         console.log(docData);
         db.collection(postCollection)
           .doc(postId)
           .update({
-            ...docData,
+            ...docData
           })
           .then(async () => {
             console.log("in then");
@@ -343,7 +365,7 @@ export let likePost = async (req, res, next) => {
               .doc(docData.user_id)
               .get();
             const userConnections = userSnap.data().connections;
-            userConnections.forEach((id) => {
+            userConnections.forEach(id => {
               db.collection(homeFeedCollection)
                 .doc(id)
                 .collection("feed")
@@ -367,7 +389,7 @@ export let commentOnPost = async (req, res, next) => {
   db.collection("users")
     .doc(req.user.id)
     .get()
-    .then((userDocSnap) => {
+    .then(userDocSnap => {
       if (!userDocSnap.exists) {
         res.status(400).send({ message: "user dont exist!" });
         return;
@@ -376,7 +398,7 @@ export let commentOnPost = async (req, res, next) => {
       db.collection(postCollection)
         .doc(postId)
         .get()
-        .then(async (docSnap) => {
+        .then(async docSnap => {
           const sharedPostSnap = await db
             .collection(SharedPostCollection)
             .doc()
@@ -392,27 +414,27 @@ export let commentOnPost = async (req, res, next) => {
             userImageUrl: userData.imageUrl,
             //commentId: suid(),
             text: text,
-            Timestamp: new Date(),
+            Timestamp: new Date()
           };
           //docData.comment.push(comment);
           db.collection(postCommentsCollection)
             .doc(postId)
             .collection("comments")
             .add({
-              comment,
+              comment
             })
-            .then((result) => {
+            .then(result => {
               res
                 .status(200)
                 .send({ message: "comment added!", commentId: result.id });
               return;
             })
-            .catch((error) => {
+            .catch(error => {
               console.log(error);
               return res.status(400).json({ message: "Something went Wrong!" });
             });
         })
-        .catch((error) => {
+        .catch(error => {
           console.log(error);
           return res.status(400).json({ message: "Something went Wrong!" });
         });
@@ -422,8 +444,14 @@ export let commentOnPost = async (req, res, next) => {
 export let deleteComment = async (req, res, next) => {
   let postId = req.body["postId"];
   let commentId = req.body["commentId"];
-  const postSnap = await db.collection(postCollection).doc(postId).get();
-  const sharedPostSnap = await db.collection(SharedPostCollection).doc().get();
+  const postSnap = await db
+    .collection(postCollection)
+    .doc(postId)
+    .get();
+  const sharedPostSnap = await db
+    .collection(SharedPostCollection)
+    .doc()
+    .get();
   if (!postSnap.exists || !sharedPostSnap.exists) {
     res.status(400).send({ message: "Post not Found!" });
     return;
@@ -440,8 +468,14 @@ export let deleteComment = async (req, res, next) => {
 
 export let replyOnComment = async (req, res, next) => {
   const postId = req.body["postId"];
-  const postSnap = await db.collection(postCollection).doc(postId).get();
-  const sharedPost = await db.collection(SharedPostCollection).doc().get();
+  const postSnap = await db
+    .collection(postCollection)
+    .doc(postId)
+    .get();
+  const sharedPost = await db
+    .collection(SharedPostCollection)
+    .doc()
+    .get();
   if (!postSnap.exists || !sharedPost.exists) {
     res.status(400).send({ message: "Post not Found!" });
     return;
@@ -462,7 +496,10 @@ export let replyOnComment = async (req, res, next) => {
     res.status(400).send({ message: "Please add some text!" });
     return;
   }
-  const userSnap = await db.collection(userCollection).doc(req.user.id).get();
+  const userSnap = await db
+    .collection(userCollection)
+    .doc(req.user.id)
+    .get();
   const userData = userSnap.data();
   await db
     .collection(postCollection)
@@ -476,7 +513,7 @@ export let replyOnComment = async (req, res, next) => {
       userImageUrl: userData.imageUrl,
       //commentId: suid(),
       text: text,
-      Timestamp: new Date(),
+      Timestamp: new Date()
     });
   await db
     .collection(postCollection)
@@ -526,7 +563,7 @@ export let getCommentsByPostId = async (req, res, next) => {
   console.log(docSnap.empty);
   const comments = [];
   let index = 0;
-  docSnap.forEach((doc) => {
+  docSnap.forEach(doc => {
     comments.push(doc.data());
     comments[index++].id = doc.id;
   });
@@ -584,7 +621,7 @@ export let getCommentReplies = async (req, res, next) => {
   console.log(docSnap.empty);
   const replies = [];
   let index = 0;
-  docSnap.forEach((doc) => {
+  docSnap.forEach(doc => {
     replies.push(doc.data());
     replies[index++].id = doc.id;
   });
@@ -600,7 +637,10 @@ export let addSharePost = async (req, res, next) => {
   try {
     //const formData = await formParser.parser(req, MAX_SIZE);
     console.log(req.user.id);
-    const userDoc = await db.collection(userCollection).doc(req.user.id).get();
+    const userDoc = await db
+      .collection(userCollection)
+      .doc(req.user.id)
+      .get();
     const userData = userDoc.data();
     const sharedPostDoc = await db
       .collection(SharedPostCollection)
@@ -612,7 +652,7 @@ export let addSharePost = async (req, res, next) => {
         sharedByImageUrl: userData.imageUrl,
         timestamp: new Date(),
         likers: [],
-        likesCount: 0,
+        likesCount: 0
       });
 
     console.log("sharedPostDoc.id", sharedPostDoc.id);
@@ -627,10 +667,10 @@ export let addSharePost = async (req, res, next) => {
         sharedByImageUrl: userData.imageUrl,
         timestamp: new Date(),
         likers: [],
-        likesCount: 0,
+        likesCount: 0
       });
 
-    userData.connections.forEach((id) => {
+    userData.connections.forEach(id => {
       console.log(id);
       db.collection(homeFeedCollection)
         .doc(id)
@@ -642,7 +682,7 @@ export let addSharePost = async (req, res, next) => {
           sharedByImageUrl: userData.imageUrl,
           timestamp: new Date(),
           likers: [],
-          likesCount: 0,
+          likesCount: 0
         });
     });
     return;
@@ -666,7 +706,10 @@ export let deleteSharedPost = async (req, res, next) => {
     }
     await docRef.delete();
     res.status(200).send({ message: "Post Deleted Successfully!!" });
-    const userDoc = await db.collection(userCollection).doc(req.user.id).get();
+    const userDoc = await db
+      .collection(userCollection)
+      .doc(req.user.id)
+      .get();
     const userData = userDoc.data();
 
     await db
@@ -676,7 +719,7 @@ export let deleteSharedPost = async (req, res, next) => {
       .doc(req.body.postId)
       .delete();
 
-    await userData.connections.forEach((id) => {
+    await userData.connections.forEach(id => {
       console.log(id);
       db.collection(homeFeedCollection)
         .doc(id)

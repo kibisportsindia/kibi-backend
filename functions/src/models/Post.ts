@@ -1,6 +1,7 @@
 export interface Post {
   user_id: String;
-  imageUrl: Array<String>;
+  image: Array<String>;
+  imageName: Array<String>;
   likers: Array<String>;
   likesCount: Number;
   description: String;

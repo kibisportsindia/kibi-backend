@@ -37,15 +37,30 @@ export const addEvent = async (
       charges: req.body["charges"],
       benefits: req.body["benefits"],
       phone: req.body["phone"],
-      type: req.body["type"],
+      type: req.body["type"]
     };
     console.log("event is ", event);
-    const newDoc = await db.collection(eventCollection).add(event);
-    functions.logger.log("addEvent:", {
-      message: "Event added Successfully!",
-      id: newDoc.id,
-    });
-    res.status(200).send({ message: "Event added", id: newDoc.id });
+    await db
+      .collection(eventCollection)
+      .add(event)
+      .then(async document => {
+        functions.logger.log("addEvent:", {
+          message: "Event added Successfully!",
+          id: document.id
+        });
+        let eventData = await db
+          .collection(eventCollection)
+          .doc(document.id)
+          .get();
+
+        res
+          .status(200)
+          .send({
+            message: "Event added",
+            id: eventData.id,
+            data: eventData.data()
+          });
+      });
   } catch (error) {
     functions.logger.log("addEvent:", error);
     res.status(400).send(`Something went wrong try again!!`);
@@ -66,14 +81,14 @@ export const getEvents = async (
       .collection(eventCollection)
       .where("type", "==", type)
       .get()
-      .then((eventData) => {
+      .then(eventData => {
         if (eventData.empty) {
           res.status(404).json({ message: "No Event Found" });
           return;
         }
 
         let data = [];
-        eventData.forEach((doc) => {
+        eventData.forEach(doc => {
           let id = doc.id;
           let docData = { id, ...doc.data() };
           data.push(docData);
@@ -99,7 +114,7 @@ export const updateEvent = async (
     db.collection(eventCollection)
       .doc(id)
       .get()
-      .then(async (doc) => {
+      .then(async doc => {
         //let imageUrl = doc.data().image;
 
         console.log(id);
@@ -117,15 +132,15 @@ export const updateEvent = async (
             benefits: req.body["benefits"],
             phone: req.body["phone"],
             type: req.body["type"],
-            imageName: req.body["imageName"],
+            imageName: req.body["imageName"]
           })
           .then(() => {
             functions.logger.log("updateEvent:", {
-              messgae: "Event Update Successfully",
+              messgae: "Event Update Successfully"
             });
             res.status(200).json({ message: "Event Update Successfully" });
           })
-          .catch((err) => {
+          .catch(err => {
             console.log(1, err);
             functions.logger.log("updateEvent:", err);
             res
@@ -133,7 +148,7 @@ export const updateEvent = async (
               .json({ messgae: "Something Went Wrong! " + err.message });
           });
       })
-      .catch((err) => {
+      .catch(err => {
         console.log(1, err);
         functions.logger.log("updateEvent:", err);
         res
@@ -157,11 +172,14 @@ export const deleteEvent = async (
     db.collection(eventCollection)
       .doc(id)
       .get()
-      .then(async (doc) => {
+      .then(async doc => {
         //let imageUrl = doc.data().image;
         //const fileName = doc.data().imageName;
         //console.log("fileName", fileName);
-        await db.collection(eventCollection).doc(id).delete();
+        await db
+          .collection(eventCollection)
+          .doc(id)
+          .delete();
         res.status(200).json({ message: "Event Deleted Successfully" });
         //const file = bucket.file(fileName);
         //file
@@ -173,9 +191,10 @@ export const deleteEvent = async (
         //  .catch((err) => {
         // res.status(400).json({ message: "Something went wrong!!" });
         //  });
-      }).catch(err=>{
-      res.status(200).json({ message: err.message });
-    });
+      })
+      .catch(err => {
+        res.status(200).json({ message: err.message });
+      });
   } catch (error) {
     res.status(400).json({ message: "Something went wrong!!" });
   }
