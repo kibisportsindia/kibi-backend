@@ -29,12 +29,13 @@ export let addStory = async (req, res, next) => {
     // console.log(file)
 
     const publicUrl = req.body.url;
-    storiesData.push({
+    let data = {
       storyId: suid(),
       publicUrl: publicUrl,
       Timestamp: new Date(),
       viewers: [],
-    });
+    };
+    storiesData.push(data);
 
     try {
       const userSnap = await db.collection("users").doc(req.user.id).get();
@@ -77,7 +78,9 @@ export let addStory = async (req, res, next) => {
       story.stories.forEach((story) => {
         delete story.viewers;
       });
-      res.status(200).send({ message: "Story uploaded Successfully!" });
+      res
+        .status(200)
+        .send({ message: "Story uploaded Successfully!", data: data });
       //console.log(doc.id);
       //console.log("story", story);
       const connectionId = userData.connections;
