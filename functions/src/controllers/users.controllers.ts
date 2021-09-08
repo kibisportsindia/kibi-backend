@@ -564,3 +564,24 @@ export let uploadProfileImage = async (req, res, next) => {
     return;
   }
 };
+
+export let searchUser = async (req, res, next) => {
+  try {
+    let query = req.body.query;
+    let userDocs1 = await (
+      await db.collection(userCollection).where("phone", "==", query).get()
+    ).docs;
+    let userDocs2 = await (
+      await db.collection(userCollection).where("name", "==", query).get()
+    ).docs;
+    let userData1 = userDocs1.map((user) => user.data());
+    let userData2 = userDocs2.map((user) => user.data());
+    let result = userData1.concat(userData2);
+    console.log(result);
+    res.status(200).send({ data: result });
+  } catch (error) {
+    functions.logger.log("error:", error);
+    res.status(400).send(`Something went wrong try again!!`);
+    return;
+  }
+};
