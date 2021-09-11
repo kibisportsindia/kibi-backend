@@ -204,9 +204,10 @@ export let getFeedStory = async (req, res, next) => {
     });
     //console.log(test);
     //console.log(storyFeed);
-    const page = req.body.page;
+    const page = req.query.page;
     const paginatedStories = [];
     let lastpage = false;
+    console.log("storyFeed");
     console.log(storyFeed);
     if (storyFeed.length >= page * 10) {
       let startingIndex = (page - 1) * 10;
