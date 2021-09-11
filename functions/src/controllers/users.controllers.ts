@@ -26,6 +26,12 @@ const storage = new Storage({
 
 const bucket = storage.bucket(`${config.project_id}.appspot.com`);
 
+const toTitleCase = (str) => {
+  return str.replace(/\w\S*/g, function (txt) {
+    return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+  });
+};
+
 // @desc SignUp
 // @route POST user/signup
 // @access Public
@@ -56,7 +62,7 @@ export let registerUsers = async (
           const user: User = {
             invite_code: req.body["invite_code"],
             phone: req.body["phone"],
-            name: req.body["name"],
+            name: toTitleCase(req.body["name"]),
             age: req.body["age"],
             location: req.body["location"],
             role: req.body["role"],
@@ -567,13 +573,14 @@ export let uploadProfileImage = async (req, res, next) => {
 
 export let searchUser = async (req, res, next) => {
   try {
-    let query = req.body.query;
+    let query = toTitleCase(req.body.query);
     let userDocs1 = await (
       await db.collection(userCollection).where("phone", "==", query).get()
     ).docs;
     let userDocs2 = await (
       await db.collection(userCollection).where("name", "==", query).get()
     ).docs;
+
     let userData1 = userDocs1.map((user) => user.data());
     let userData2 = userDocs2.map((user) => user.data());
     let result = userData1.concat(userData2);
