@@ -340,17 +340,22 @@ export let likePost = async (req, res, next) => {
           })
           .then(async () => {
             console.log("in then");
-            db.collection(homeFeedCollection)
+            console.log(docData.user_id);
+            console.log(postId);
+            await db
+              .collection(homeFeedCollection)
               .doc(docData.user_id)
               .collection("feed")
               .doc(postId)
               .update({ ...docData });
+            console.log("sss");
             const userSnap = await db
               .collection(userCollection)
               .doc(docData.user_id)
               .get();
             const userConnections = userSnap.data().connections;
             userConnections.forEach((id) => {
+              console.log("id", id);
               db.collection(homeFeedCollection)
                 .doc(id)
                 .collection("feed")

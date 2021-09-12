@@ -29,10 +29,14 @@ export let addStory = async (req, res, next) => {
     // console.log(file)
 
     const publicUrl = req.body.url;
+    const type = req.body.type;
+    //const duration = req.body.duration;
     let data = {
-      storyId: suid(),
-      publicUrl: publicUrl,
-      Timestamp: new Date(),
+      id: suid(),
+      url: publicUrl,
+      type: type,
+      //duration: duration,
+      created: new Date(),
       viewers: [],
     };
     storiesData.push(data);
@@ -66,8 +70,8 @@ export let addStory = async (req, res, next) => {
       } else {
         story = {
           userId: req.user.id,
-          userName: userData.name,
-          userImageUrl: userData.imageUrl,
+          username: userData.name,
+          profile: userData.imageUrl,
           stories: storiesData,
         };
         doc = await db.collection(storiesCollection).add({
@@ -191,7 +195,7 @@ export let getFeedStory = async (req, res, next) => {
             flag = true;
           }
           if (!flag) time = Math.floor(time) + " s";
-          story.time = time;
+          story.duration = time;
           return story;
         }
       });
@@ -331,7 +335,7 @@ export let getUserStory = async (req, res, next) => {
           flag = true;
         }
         if (!flag) time = Math.floor(time) + " s";
-        story.time = time;
+        story.duration = time;
         return story;
       }
     });
