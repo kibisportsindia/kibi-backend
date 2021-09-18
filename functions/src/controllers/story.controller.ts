@@ -112,6 +112,7 @@ export let addStory = async (req, res, next) => {
 
 export let deleteStory = async (req, res, next) => {
   try {
+    console.log(req.user.id);
     const storyId = req.body.storyId;
     const storySnap = await db
       .collection(storiesCollection)
@@ -121,7 +122,7 @@ export let deleteStory = async (req, res, next) => {
     let doc = storySnap.docs[0];
     let newStoryData = doc
       .data()
-      .stories.filter((story) => story.storyId !== storyId);
+      .stories.filter((story) => story.id !== storyId);
     await doc.ref.update({
       stories: newStoryData,
     });
@@ -174,8 +175,8 @@ export let getFeedStory = async (req, res, next) => {
     storyFeed.forEach((userStories) => {
       filteredStories = userStories.stories.filter((story) => {
         let now = +new Date();
-        let createdAt = +story.Timestamp.toDate();
-        console.log(story.storyId, story.Timestamp.toDate());
+        let createdAt = +story.created.toDate();
+        console.log(story.storyId, story.created.toDate());
         //console.log("now", now, "createdAt", createdAt);
         const oneDay = 60 * 60 * 24 * 1000;
         var compareDatesBoolean = now - createdAt < oneDay;
@@ -237,6 +238,7 @@ export let getFeedStory = async (req, res, next) => {
 
 export let storySeen = async (req, res, next) => {
   try {
+    console.log("storySeen");
     let storyId = req.body.storyId;
     //@userId is id of author of story!
     let userId = req.body.userId;
@@ -250,7 +252,7 @@ export let storySeen = async (req, res, next) => {
     let storiesData = docSnap.docs[0].data().stories;
     let user;
     storiesData.forEach((story) => {
-      if (story.storyId === storyId) {
+      if (story.id === storyId) {
         console.log("story", story);
         user = [];
         if (story.viewers.length !== 0) {
@@ -294,7 +296,7 @@ export let getViewersList = async (req, res, next) => {
       .get();
     let storiesData = docSnap.docs[0].data().stories;
     //console.log(story);
-    let story = storiesData.filter((story) => story.storyId === storyId);
+    let story = storiesData.filter((story) => story.id === storyId);
     console.log(story);
     res.status(200).send({ viewers: story[0].viewers });
     return;
@@ -314,8 +316,8 @@ export let getUserStory = async (req, res, next) => {
 
     let filteredStories = userStoriesDoc.stories.filter((story) => {
       let now = +new Date();
-      let createdAt = +story.Timestamp.toDate();
-      console.log(story.storyId, story.Timestamp.toDate());
+      let createdAt = +story.created.toDate();
+      console.log(story.storyId, story.created.toDate());
       //console.log("now", now, "createdAt", createdAt);
       const oneDay = 60 * 60 * 24 * 1000;
       var compareDatesBoolean = now - createdAt < oneDay;
