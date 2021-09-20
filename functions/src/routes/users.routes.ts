@@ -16,6 +16,9 @@ router.route("/login").post(userController.loginUser);
 router.route("/edit-profile").post(userController.editProfile);
 router.route("/connect").post(authUser, userController.connect);
 router.route("/search").post(userController.searchUser);
+router
+  .route("/uploadProfileImage")
+  .post(authUser, userController.uploadProfileImage);
 
 //router.route("/get-feed").get((req,res,next)=>{console.log("gotcha");next()},userController.getFeed);
 router.route("/get-feed").get(authUser, userController.getFeed);

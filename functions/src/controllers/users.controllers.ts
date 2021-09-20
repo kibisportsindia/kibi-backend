@@ -2,29 +2,30 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { Request, Response, NextFunction } from "express";
 import * as jwt from "jsonwebtoken";
-import { Storage } from "@google-cloud/storage";
+// import { Storage } from "@google-cloud/storage";
 import * as config from "../config/config.json";
 import { configTwilio } from "../config/config";
 import { Twilio } from "twilio";
 import { User, Social, Interests } from "../models/User";
-const { v4: uuidv4 } = require("uuid");
+// const { v4: uuidv4 } = require("uuid");
 var shortid = require("shortid");
-const formParser = require("../utils/formParser");
-const MAX_SIZE = 4000000;
+// const formParser = require("../utils/formParser");
+// const MAX_SIZE = 4000000;
 
 export let db = admin.firestore();
 db.settings({ ignoreUndefinedProperties: true });
 const userCollection = "users";
 const invitationCollection = "invitation";
 const homeFeedCollection = "homeFeed";
+const postCollection = "posts";
 const client = new Twilio(configTwilio.accountSID, configTwilio.authToken);
 
-const storage = new Storage({
-  projectId: config.project_id,
-  // keyFilename: "./config/config.json"
-});
+// const storage = new Storage({
+//   projectId: config.project_id,
+//   // keyFilename: "./config/config.json"
+// });
 
-const bucket = storage.bucket(`${config.project_id}.appspot.com`);
+// const bucket = storage.bucket(`${config.project_id}.appspot.com`);
 
 const toTitleCase = (str) => {
   return str.replace(/\w\S*/g, function (txt) {
@@ -534,36 +535,60 @@ export let getFeed = async (req, res) => {
 };
 
 export let uploadProfileImage = async (req, res, next) => {
-  const formData = await formParser.parser(req, MAX_SIZE);
-  const file = formData.files[0];
-  // console.log("formdata ", formData);
-  // console.log("file ", file);
-  // console.log("Buffer", file.content);
   try {
-    if (!file) {
+    let imageUrl = req.body.imageUrl;
+    if (!imageUrl) {
       res.status(400).send("File not found!)");
       return;
     }
-    const blob = bucket.file("image-" + uuidv4() + "-" + file.filename);
-    const blobWriter = blob.createWriteStream({
-      metadata: {
-        contentType: file.contentType,
-      },
-    });
-    blobWriter.on("error", (err) => next(err));
-    blobWriter.on("finish", async () => {
-      const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${
-        bucket.name
-      }/o/${encodeURI(blob.name)}?alt=media`;
+    const publicUrl = imageUrl;
 
-      console.log("url", publicUrl);
-      await db
-        .collection(userCollection)
-        .doc(req.user.id)
-        .update({ imageUrl: publicUrl });
-      res.status(200).send({ message: "image Uploaded successfully!" });
+    console.log("url", publicUrl);
+    let userDoc = await db.collection(userCollection).doc(req.user.id);
+    userDoc.update({ imageUrl: publicUrl });
+    res.status(200).send({ message: "image Uploaded successfully!" });
+    let stories = await db
+      .collection("stories")
+      .where("userId", "==", req.user.id)
+      .get();
+    let storieDoc = stories.docs[0];
+    await storieDoc.ref.update({ profile: imageUrl });
+    let posts = await db
+      .collection("posts")
+      .where("user_id", "==", req.user.id)
+      .get();
+    posts.forEach((doc) => {
+      doc.ref.update({ userProfileImage: imageUrl });
     });
-    blobWriter.end(file.content);
+    let connections = (await userDoc.get()).data().connections;
+    connections.forEach(async (id) => {
+      await db
+        .collection("feedStory")
+        .doc(id)
+        .collection("stories")
+        .doc(storieDoc.id)
+        .update({ profile: imageUrl });
+    });
+    let userfeedPosts = await db
+      .collection(homeFeedCollection)
+      .doc(req.user.id)
+      .collection("feed")
+      .where("user_id", "==", req.user.id)
+      .get();
+    userfeedPosts.forEach(async (doc) => {
+      doc.ref.update({ userProfileImage: imageUrl });
+    });
+    connections.forEach(async (id) => {
+      let feedPosts = await db
+        .collection(homeFeedCollection)
+        .doc(id)
+        .collection("feed")
+        .where("user_id", "==", req.user.id)
+        .get();
+      feedPosts.forEach(async (doc) => {
+        doc.ref.update({ userProfileImage: imageUrl });
+      });
+    });
   } catch (error) {
     functions.logger.log("error:", error);
     res.status(400).send(`Something went wrong try again!!`);

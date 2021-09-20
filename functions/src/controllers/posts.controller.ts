@@ -43,8 +43,13 @@ const postCommentsCollection = "postComments";
 export let createPost = async (req, res, next) => {
   try {
     console.log(req.body);
+    let user = await (
+      await db.collection("users").doc(req.user.id).get()
+    ).data();
     let post: Post = {
       user_id: req.user.id,
+      userProfileImage: user.imageUrl,
+      username: user.name,
       image: req.body["imageUrls"],
       imageName: req.body["imageName"],
       likers: [],
@@ -125,15 +130,19 @@ export let updatePost = async (req, res, next) => {
     db.collection(postCollection)
       .doc(req.body["post_id"])
       .get()
-      .then((oldDoc) => {
+      .then(async (oldDoc) => {
         if (!oldDoc.exists) {
           res.status(400).send({ message: "POST not found!" });
           return;
         }
-
+        let user = await (
+          await db.collection("users").doc(req.user.id).get()
+        ).data();
         let post: Post = {
           user_id: req.user.id,
           image: req.body["imageUrl"],
+          userProfileImage: user.imageUrl,
+          username: user.name,
           imageName: req.body["imageName"],
           likers: [],
           likesCount: 0,
