@@ -87,12 +87,12 @@ export let addStory = async (req, res, next) => {
         .send({ message: "Story uploaded Successfully!", data: data });
       //console.log(doc.id);
       //console.log("story", story);
-      const connectionId = userData.connections;
+      const connections = userData.connections;
       //console.log("connectionsId", connectionId);
       //@send to every connections feed!
-      connectionId.forEach((id) => {
+      connections.forEach((user) => {
         db.collection(feedStoriesCollection)
-          .doc(id)
+          .doc(user.userId)
           .collection(feedStoriesSubCollection)
           .doc(doc.id)
           .set({ ...story });
@@ -130,11 +130,11 @@ export let deleteStory = async (req, res, next) => {
     res.status(200).send({ message: "Story deleted successfully!" });
 
     const userSnap = await db.collection("users").doc(req.user.id).get();
-    const userConnectionsId = userSnap.data().connections;
-    userConnectionsId.forEach(async (id) => {
+    const userConnections = userSnap.data().connections;
+    userConnections.forEach(async (user) => {
       await db
         .collection(feedStoriesCollection)
-        .doc(id)
+        .doc(user.userId)
         .collection(feedStoriesSubCollection)
         .doc(doc.id)
         .set({

@@ -7,10 +7,10 @@ export interface User {
   role: Role;
   gender: Gender;
   invited_by;
-  connections: Array<String>;
+  connections: Array<Object>;
   imageUrl: String;
-  status1:String;
-  status2:String;
+  status1: String;
+  status2: String;
 }
 
 enum Role {
