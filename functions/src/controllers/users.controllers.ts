@@ -12,6 +12,7 @@ var shortid = require("shortid");
 // const formParser = require("../utils/formParser");
 // const MAX_SIZE = 4000000;
 
+//console.log(configTwilio);
 export let db = admin.firestore();
 db.settings({ ignoreUndefinedProperties: true });
 const userCollection = "users";
@@ -465,18 +466,34 @@ export let connect = async (req, res) => {
     const userDoc = await db.collection(userCollection).doc(loggedInUserId);
     const userSnap = await userDoc.get();
     const userData = userSnap.data();
-    if (userData.connections.includes(mainUserId)) {
-      let index = userData.connections.indexOf(mainUserId);
+    const mainUserDoc = await db.collection(userCollection).doc(mainUserId);
+    const mainUserSnap = await mainUserDoc.get();
+    const mainUserData = mainUserSnap.data();
+    let connectionUser = {
+      userId: mainUserSnap.id,
+      username: mainUserData.name,
+      imageUrl: mainUserData.imageUrl,
+    };
+    console.log(mainUserId);
+    let include = userData.connections.filter(
+      (user) => user.userId === mainUserId
+    );
+    console.log(include);
+    let message = "follow";
+    if (include.length > 0) {
+      let index = userData.connections.indexOf(connectionUser);
       userData.connections.splice(index, 1);
+      message = "unfollow";
     } else {
-      userData.connections.push(mainUserId);
+      userData.connections.push(connectionUser);
     }
     await userDoc.update({
       ...userData,
     });
-    res.status(200).send({ message: "" });
+    res.status(200).send({ message: message });
     return;
   } catch (error) {
+    console.log(error);
     res.status(400).send(`Something Went Wrong`);
     return;
   }
@@ -561,10 +578,10 @@ export let uploadProfileImage = async (req, res, next) => {
       doc.ref.update({ userProfileImage: imageUrl });
     });
     let connections = (await userDoc.get()).data().connections;
-    connections.forEach(async (id) => {
+    connections.forEach(async (user) => {
       await db
         .collection("feedStory")
-        .doc(id)
+        .doc(user.userId)
         .collection("stories")
         .doc(storieDoc.id)
         .update({ profile: imageUrl });
@@ -578,10 +595,10 @@ export let uploadProfileImage = async (req, res, next) => {
     userfeedPosts.forEach(async (doc) => {
       doc.ref.update({ userProfileImage: imageUrl });
     });
-    connections.forEach(async (id) => {
+    connections.forEach(async (user) => {
       let feedPosts = await db
         .collection(homeFeedCollection)
-        .doc(id)
+        .doc(user.userId)
         .collection("feed")
         .where("user_id", "==", req.user.id)
         .get();
