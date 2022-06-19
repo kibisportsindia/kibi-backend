@@ -83,12 +83,25 @@ export let registerUsers = async (
             .collection(invitationCollection)
             .doc(inviteDataId)
             .set(inviteData, { merge: true });
+          await db
+            .collection(userCollection)
+            .where("phone", "==", user.phone)
+            .get()
+            .then(userData => {
+              if (!userData.empty) {
+                res.status(400).json({ message: "User already exits" });
+                return;
+              }
+            });
           const newDoc = await db.collection(userCollection).add(user);
           const token = jwt.sign({ id: newDoc.id }, config.TOKEN_SECRET);
           res
             .header("auth-user", token)
             .status(201)
-            .json({ message: `Created a new user add profile: ${newDoc.id}` });
+            .json({
+              id: newDoc.id,
+              message: `Created a new user add profile: ${newDoc.id}`
+            });
         }
       });
   } catch (error) {
