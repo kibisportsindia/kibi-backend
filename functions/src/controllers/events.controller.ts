@@ -37,7 +37,8 @@ export const addEvent = async (
       charges: req.body["charges"],
       benefits: req.body["benefits"],
       phone: req.body["phone"],
-      type: req.body["type"]
+      type: req.body["type"],
+      category: req.body["category"]
     };
     console.log("event is ", event);
     await db
@@ -53,13 +54,11 @@ export const addEvent = async (
           .doc(document.id)
           .get();
 
-        res
-          .status(200)
-          .send({
-            message: "Event added",
-            id: eventData.id,
-            data: eventData.data()
-          });
+        res.status(200).send({
+          message: "Event added",
+          id: eventData.id,
+          data: eventData.data()
+        });
       });
   } catch (error) {
     functions.logger.log("addEvent:", error);
@@ -132,7 +131,8 @@ export const updateEvent = async (
             benefits: req.body["benefits"],
             phone: req.body["phone"],
             type: req.body["type"],
-            imageName: req.body["imageName"]
+            imageName: req.body["imageName"],
+            category: req.body["category"]
           })
           .then(() => {
             functions.logger.log("updateEvent:", {

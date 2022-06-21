@@ -11,4 +11,5 @@ export interface Event {
   phone: String;
   type: String;
   imageName: Array<String>;
+  category: String;
 }
