@@ -75,10 +75,10 @@ export const getEvents = async (
   try {
     console.log("headers", req.headers);
 
-    let type = req.headers.type;
+    // let type = req.headers.type;
     await db
       .collection(eventCollection)
-      .where("type", "==", type)
+      // .where("type", "==", type)
       .get()
       .then(eventData => {
         if (eventData.empty) {
