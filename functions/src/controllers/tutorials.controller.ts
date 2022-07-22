@@ -16,7 +16,7 @@ export let db = admin.firestore();
 const tutorialsCollection = "tutorials";
 
 const storage = new Storage({
-  projectId: config.project_id,
+  projectId: config.project_id
   //keyFilename: "../config/config.json",
 });
 
@@ -28,78 +28,29 @@ export let addTutorial = async (
   next: NextFunction
 ) => {
   try {
-    db.collection(tutorialsCollection)
-      .where("categoryNumber", "==", req.body["categoryNumber"])
-      .get()
-      .then(async (result) => {
-        // console.log(result)
-        if (!result.empty) {
-          let oldData, id;
-          result.forEach((doc) => {
-            // console.log("doc: ",doc)
-            id = doc.id;
-            oldData = doc.data().data;
-          });
-          console.log(id, oldData);
-          let newData;
-          let tutorialId = suid();
-          let data = {
-            id: tutorialId,
-            name: req.body["name"],
-            description: req.body["description"],
-            imageUrl: req.body.imageUrl,
-            videoUrl: req.body.videoUrl,
-            imageName: req.body["imageName"],
-            videoName: req.body["imageName"],
-          };
-          newData = [...oldData, data];
-          db.collection(tutorialsCollection)
-            .doc(id)
-            .update({
-              data: newData,
-            })
-            .then((result) => {
-              res.status(200).json({
-                message: "Tutorial added",
-                docId: id,
-                tutorialId: tutorialId,
-                imageName: req.body["imageName"],
-                videoName: req.body["videoName"],
-              });
-            });
-        } else {
-          let tutorialId = suid();
-          const tutorial: Tutorial = {
-            categoryNumber: req.body["categoryNumber"],
-            data: [
-              {
-                id: tutorialId,
-                name: req.body["name"],
-                description: req.body["description"],
-                imageUrl: req.body.imageUrl,
-                videoUrl: req.body.videoUrl,
-                imageName: req.body.imageName,
-                videoName: req.body.videoName,
-              },
-            ],
-          };
-          const newDoc = await db.collection(tutorialsCollection).add(tutorial);
-          functions.logger.log("addTutorial:", {
-            message: "tutorial added",
-            docId: newDoc.id,
-            tutorialId: tutorialId,
-            imageName: req.body.imageName,
-            videoName: req.body.videoName,
-          });
-          res.status(200).send({
-            message: "tutorial added",
-            docId: newDoc.id,
-            tutorialId: tutorialId,
-            imageName: req.body.imageName,
-            videoName: req.body.videoName,
-          });
-        }
-      });
+    let tutorialId = suid();
+    const tutorial: Tutorial = {
+      id: tutorialId,
+      name: req.body["name"],
+      description: req.body["description"],
+      videoUrl: req.body.videoUrl,
+      approved: false
+    };
+
+    const newDoc = await db.collection(tutorialsCollection).add(tutorial);
+    functions.logger.log("addTutorial:", {
+      message: "tutorial added",
+      docId: newDoc.id,
+      tutorialId: tutorialId
+    });
+    res.status(200).send({
+      message: "tutorial added",
+      docId: newDoc.id,
+      tutorialId: tutorialId,
+      name: req.body.name,
+      description: req.body.description,
+      videoUrl: req.body.videoUrl
+    });
   } catch (error) {
     functions.logger.log("addTutorial:", error);
     res.status(400).json({ message: "Something went wrong!!" });
@@ -113,20 +64,20 @@ export let getTutorials = async (
 ) => {
   try {
     db.collection(tutorialsCollection)
-      .doc(req.query["docId"].toString())
       .get()
-      .then((result) => {
-        if (!result.exists) {
-          res.status(400).json({ message: "Category Not Found" });
+      .then(result => {
+        if (result.empty) {
+          res.status(400).json({ message: "Tutorials Not Found" });
           return;
         }
-        const doc = result.data();
-        const docId = result.id;
-        if (doc.data.length === 0) {
-          res.status(200).json({ message: "No Tutorials Found" });
-          return;
-        }
-        res.status(200).json({ docId: docId, tutorials: doc });
+        let data = [];
+        result.forEach(doc => {
+          let id = doc.id;
+          let docData = { id, ...doc.data() };
+          data.push(docData);
+        });
+        console.log(data);
+        res.status(200).json(data);
       });
   } catch (error) {
     console.log(error);
@@ -143,11 +94,11 @@ export let updateTutorial = async (
     db.collection(tutorialsCollection)
       .doc(req.body["docId"])
       .get()
-      .then(async (result) => {
+      .then(async result => {
         let oldData = result.data().data;
         console.log("oldData", oldData);
         let index = oldData.findIndex(
-          (tutorial) => tutorial.id === req.body["tutorialId"]
+          tutorial => tutorial.id === req.body["tutorialId"]
         );
         console.log("index", index);
         let newData = [...oldData];
@@ -158,18 +109,18 @@ export let updateTutorial = async (
           imageUrl: req.body.imageUrl,
           videoUrl: req.body.videoUrl,
           imageName: req.body.imageName,
-          videoName: req.body.videoName,
+          videoName: req.body.videoName
         };
         db.collection(tutorialsCollection)
           .doc(req.body["docId"])
           .update({
-            data: newData,
+            data: newData
           })
           .then(() => {
             res.status(200).json({ message: "Tutorial update" });
           });
       })
-      .catch((err) => {
+      .catch(err => {
         console.log("error in else", err);
         functions.logger.log("updateTutorial:", { error: "err" });
         res.status(400).json({ message: "Something went wrong!!" });
@@ -189,7 +140,7 @@ export let deleteTutorial = (
     db.collection(tutorialsCollection)
       .doc(req.body["docId"])
       .get()
-      .then(async (result) => {
+      .then(async result => {
         if (result) {
           let oldData, id;
           id = result.id;
@@ -197,7 +148,7 @@ export let deleteTutorial = (
           let newData;
           let filesArray = [];
           console.log(oldData);
-          newData = oldData.filter((item) => {
+          newData = oldData.filter(item => {
             if (item.id !== req.body["tutorialId"]) {
               return item;
             } else {
@@ -210,9 +161,9 @@ export let deleteTutorial = (
           db.collection(tutorialsCollection)
             .doc(id)
             .update({
-              data: newData,
+              data: newData
             })
-            .then((result) => {
+            .then(result => {
               bucket
                 .file(filesArray[0])
                 .delete()
@@ -248,7 +199,7 @@ export let getATutorialById = async (req, res, next) => {
       .where("categoryNumber", "==", categoryNumber)
       .get();
     const docData = docSnap.docs[0].data();
-    let tutorial = docData.data.filter((tut) => tut.id === tutorialId);
+    let tutorial = docData.data.filter(tut => tut.id === tutorialId);
     res.status(200).send({ message: tutorial[0] });
   } catch (error) {
     console.log(error);

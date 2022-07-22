@@ -1,4 +1,7 @@
 export interface Tutorial {
-    categoryNumber: String,
-    data:Array<object>;
+  name: String;
+  id: Number;
+  description: String;
+  videoUrl: String;
+  approved: Boolean;
 }
