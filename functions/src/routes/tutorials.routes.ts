@@ -8,5 +8,5 @@ router.get("/get-tutorial", tutorialController.getTutorials);
 router.post("/update-tutorial", tutorialController.updateTutorial);
 router.post("/delete-tutorial", tutorialController.deleteTutorial);
 router.get("/getTutorialById", tutorialController.getATutorialById);
-
+router.get("/getAllTuts/:game", tutorialController.getAllTuts);
 module.exports = router;

@@ -14,6 +14,7 @@ admin.initializeApp(functions.config().firebase, "app-tutorials");
 export let db = admin.firestore();
 
 const tutorialsCollection = "tutorials";
+const tutsCollection = "tuts";
 
 const storage = new Storage({
   projectId: config.project_id
@@ -201,6 +202,24 @@ export let getATutorialById = async (req, res, next) => {
     const docData = docSnap.docs[0].data();
     let tutorial = docData.data.filter(tut => tut.id === tutorialId);
     res.status(200).send({ message: tutorial[0] });
+  } catch (error) {
+    console.log(error);
+    res.status(400).send({ message: "something went wrong!" });
+  }
+};
+
+export let getAllTuts = async (req, res, next) => {
+  try {
+    const game = req.params.game;
+    const docSnap = await db
+      .collection(tutsCollection)
+      .where("game", "==", game)
+      .get();
+    const docData = docSnap.docs[0].data();
+
+    res
+      .status(200)
+      .send({ message: "Data Fetched successfully", data: docData });
   } catch (error) {
     console.log(error);
     res.status(400).send({ message: "something went wrong!" });
